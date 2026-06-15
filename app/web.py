@@ -125,17 +125,25 @@ def query_courses():
 
     all_rows = []
     seen = set()
+    PAGE_ROWS = 60
     for xklxdm in pools:
-        result = client.query_hzkc(params=params, xklxdm=xklxdm)
-        for row in result.get('rows', []):
-            row['_xklxdm'] = xklxdm
-            # 按课程编号去重（同一门课可能出现在多个池子）
-            kcbh = row.get('kcbh', '')
-            if kcbh and kcbh in seen:
-                continue
-            if kcbh:
-                seen.add(kcbh)
-            all_rows.append(row)
+        page = 1
+        while True:
+            result = client.query_hzkc(params=params, page=page, rows=PAGE_ROWS, xklxdm=xklxdm)
+            rows = result.get('rows', [])
+            if not rows:
+                break
+            for row in rows:
+                row['_xklxdm'] = xklxdm
+                kcbh = row.get('kcbh', '')
+                if kcbh and kcbh in seen:
+                    continue
+                if kcbh:
+                    seen.add(kcbh)
+                all_rows.append(row)
+            if len(rows) < PAGE_ROWS:
+                break
+            page += 1
 
     return jsonify({'code': 0, 'rows': all_rows, 'total': len(all_rows)})
 
