@@ -19,7 +19,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(me
 
 def create_app():
     template_dir = os.path.join(_BASE, 'app', 'templates')
-    app = Flask(__name__, template_folder=template_dir)
+    static_dir = os.path.join(_BASE, 'app', 'static')
+    app = Flask(__name__, template_folder=template_dir, static_folder=static_dir, static_url_path='/static')
     app.secret_key = 'nenu-course-grabber-secret'
     app.register_blueprint(api)
     return app

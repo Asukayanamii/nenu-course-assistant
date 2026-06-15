@@ -74,8 +74,10 @@ nenu-course-assistant/
 │   ├── client.py        # 教务处 API 客户端 (CourseClient)
 │   ├── storage.py       # JSON 文件持久化存储
 │   ├── web.py           # Flask 路由 (API 代理 + 页面)
+│   ├── static/
+│   │   └── app.js       # 前端逻辑 (抢课循环、查询、渲染)
 │   └── templates/
-│       └── index.html   # 单页前端
+│       └── index.html   # 单页前端 (HTML + CSS)
 └── data/
     └── storage.json     # 本地持久化数据 (含 Cookie, 勿提交)
 ```
@@ -86,7 +88,7 @@ nenu-course-assistant/
 
 ```bash
 pip install pyinstaller
-pyinstaller --onefile --add-data "app/templates;app/templates" --name "NENU抢课系统" main.py
+pyinstaller --onefile --add-data "app/templates;app/templates" --add-data "app/static;app/static" --name "NENU抢课系统" main.py
 ```
 
 生成的 exe 位于 `dist/NENU抢课系统.exe`（约 18MB），可直接复制到任意 Windows 电脑运行，无需安装 Python。持久化数据（Cookie、抢课列表）会保存在 exe 同目录下的 `data/` 文件夹中。
