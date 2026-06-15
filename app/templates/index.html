@@ -273,7 +273,7 @@ table tr:hover td { background: #fafbfc; }
             <h3 style="margin:0">课程列表</h3>
             <span id="search-stat" class="text-muted"></span>
             <div class="spacer"></div>
-            <button class="btn btn-success btn-sm" onclick="addAllShownToGrab()">全部加入抢课</button>
+            <button class="btn btn-success btn-sm" onclick="addCheckedToGrab()">批量加入抢课</button>
         </div>
         <div style="overflow-x:auto">
             <table>
@@ -533,12 +533,23 @@ async function loadDetail(idx, kcptdm, kcmc, xklxdm) {
             const hasSlot = parseInt(r.jxbrs||0) < parseInt(r.pkrs||0);
             const inList = grabCourses.some(g => g.kcrwdm === r.kcrwdm);
             h += '<div class="item '+(hasSlot?'hasslot':'full')+'">'
+                + (inList ? '<span class="badge-status badge-info" style="margin-right:6px">已加入</span>'
+                   : '<input type="checkbox" class="chk-class" style="margin-right:6px;width:14px;height:14px"'
+                     + ' data-kcrwdm="'+esc(r.kcrwdm)+'"'
+                     + ' data-kcmc="'+esc(r.kcmc)+'"'
+                     + ' data-jxbmc="'+esc(r.jxbmc||'')+'"'
+                     + ' data-teaxms="'+esc(r.teaxms||'')+'"'
+                     + ' data-pkrs="'+(r.pkrs||0)+'"'
+                     + ' data-jxbrs="'+(r.jxbrs||0)+'"'
+                     + ' data-xqjc="'+esc((r.xqjc||'').substring(0,30))+'"'
+                     + ' data-xklxdm="'+(r._xklxdm||xklxdm||'')+'"'
+                     + '>')
                 + '<strong>'+esc(r.jxbmc||'')+'</strong>'
                 + ' | '+esc(r.teaxms||'')
                 + ' | '+(r.pkrs||'?')+'/'+(r.jxbrs||'?')
                 + (hasSlot ? ' <span class="badge-status badge-success">有名额</span>' : ' <span class="badge-status badge-danger">已满</span>')
                 + ' | <span style="color:#666">'+esc((r.xqjc||'').substring(0,30))+'</span>'
-                + (inList ? ' <span class="badge-status badge-info">已加入</span>'
+                + (inList ? ''
                    : ' <button class="btn btn-sm btn-success" onclick="addToGrab(\''+r.kcrwdm+'\',\''+esc(r.kcmc)+'\',\''+esc(r.jxbmc||'')+'\',\''+esc(r.teaxms||'')+'\',\''+(r.pkrs||0)+'\',\''+(r.jxbrs||0)+'\',\''+esc((r.xqjc||'').substring(0,30))+'\',\''+(r._xklxdm||xklxdm||'')+'\')">加入抢课</button>')
                 + '</div>';
         });
@@ -585,17 +596,68 @@ function removeGrab(kcrwdm) {
     saveGrabListToServer();
 }
 
-function addAllShownToGrab() {
-    document.querySelectorAll('[onclick*="addToGrab"]').forEach(btn => {
-        try {
-            const m = btn.getAttribute('onclick').match(/addToGrab\((.+?)\)/);
-            if (m) {
-                const a = m[1].split(',').map(s => s.trim().replace(/^'|'$/g,'').replace(/^"|"$/g,''));
-                if (a.length>=2) addToGrab(a[0],a[1],a[2]||'',a[3]||'',a[4]||0,a[5]||0,a[6]||'',a[7]||'');
-            }
-        } catch(e) {}
+async function addCheckedToGrab() {
+    const classCbs = document.querySelectorAll('.chk-class:checked');
+    const courseCbs = document.querySelectorAll('.chk-course:checked');
+    if (!classCbs.length && !courseCbs.length) {
+        alert('请勾选要加入的课程（勾选课程行可加入该课所有课堂，勾选具体课堂可单独加入）');
+        return;
+    }
+    let count = 0;
+    // 1. 处理已勾选的单个课堂
+    classCbs.forEach(cb => {
+        const kcrwdm = cb.dataset.kcrwdm;
+        if (!kcrwdm || grabCourses.some(g => g.kcrwdm === kcrwdm)) return;
+        grabCourses.push({
+            kcrwdm: kcrwdm,
+            kcmc: cb.dataset.kcmc || '',
+            jxbmc: cb.dataset.jxbmc || '',
+            teaxms: cb.dataset.teaxms || '',
+            pkrs: cb.dataset.pkrs || 0,
+            jxbrs: cb.dataset.jxbrs || 0,
+            xqjc: cb.dataset.xqjc || '',
+            xklxdm: cb.dataset.xklxdm || '',
+        });
+        count++;
     });
-    saveGrabListToServer();
+    // 2. 处理已勾选的课程行 → 自动获取该课所有课堂
+    for (const cb of courseCbs) {
+        const kcptdm = cb.dataset.kcptdm;
+        const kcmc = cb.dataset.kcmc;
+        const xklxdm = cb.dataset.xklxdm;
+        if (!kcptdm) continue;
+        try {
+            const r = await fetch('/api/courses/query_detail', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({kcptdm, xklxdm})
+            });
+            const d = await r.json();
+            (d.rows || []).forEach(row => {
+                if (grabCourses.some(g => g.kcrwdm === row.kcrwdm)) return;
+                grabCourses.push({
+                    kcrwdm: row.kcrwdm,
+                    kcmc: row.kcmc || kcmc || '',
+                    jxbmc: row.jxbmc || '',
+                    teaxms: row.teaxms || '',
+                    pkrs: row.pkrs || 0,
+                    jxbrs: row.jxbrs || 0,
+                    xqjc: (row.xqjc || '').substring(0, 30),
+                    xklxdm: row._xklxdm || xklxdm || '',
+                });
+                count++;
+            });
+        } catch(e) {
+            addLog && addLog('warn', '获取课程['+kcmc+']课堂列表失败: '+e.message);
+        }
+    }
+    if (count) {
+        renderGrabList();
+        saveGrabListToServer();
+        showTmpMsg('已批量加入 '+count+' 个课堂');
+    } else {
+        alert('勾选的课堂已在抢课列表中');
+    }
 }
 
 function renderGrabList() {
