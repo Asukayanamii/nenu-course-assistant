@@ -2,9 +2,15 @@
 import json
 import os
 import shutil
+import sys
 import time
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data')
+if getattr(sys, 'frozen', False):
+    _DATA_BASE = os.path.dirname(sys.executable)
+else:
+    _DATA_BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+DATA_DIR = os.path.join(_DATA_BASE, 'data')
 DATA_FILE = os.path.join(DATA_DIR, 'storage.json')
 TEMPLATE_FILE = os.path.join(DATA_DIR, 'storage.template.json')
 

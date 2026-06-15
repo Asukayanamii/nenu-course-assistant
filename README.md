@@ -75,6 +75,17 @@ nenu-course-assistant/
     └── storage.json     # 本地持久化数据 (含 Cookie, 勿提交)
 ```
 
+## 打包为独立 exe
+
+在已安装 Python 的机器上执行：
+
+```bash
+pip install pyinstaller
+pyinstaller --onefile --add-data "app/templates;app/templates" --name "NENU抢课系统" main.py
+```
+
+生成的 exe 位于 `dist/NENU抢课系统.exe`（约 18MB），可直接复制到任意 Windows 电脑运行，无需安装 Python。持久化数据（Cookie、抢课列表）会保存在 exe 同目录下的 `data/` 文件夹中。
+
 ## 注意事项
 
 - Cookie 包含登录态，`data/storage.json` 已加入 `.gitignore`，切勿提交

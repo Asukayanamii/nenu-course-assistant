@@ -16,3 +16,8 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+
+# PyInstaller
+*.spec
+build/
+dist/

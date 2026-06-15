@@ -4,7 +4,10 @@ import os
 import sys
 import logging
 
-_BASE = os.path.abspath(os.path.dirname(__file__))
+if getattr(sys, 'frozen', False):
+    _BASE = sys._MEIPASS
+else:
+    _BASE = os.path.abspath(os.path.dirname(__file__))
 # 确保能正确 import app 包
 sys.path.insert(0, _BASE)
 
