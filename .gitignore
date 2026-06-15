@@ -1,0 +1,18 @@
+# 本地持久化存储（含 Cookie，切勿提交！）
+data/storage.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

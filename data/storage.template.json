@@ -1,0 +1,10 @@
+{
+  "_说明": "重命名本文件为 storage.json 并填入你的 Cookie",
+  "_获取方式": "登录选课系统 → F12 → Application → Cookies → bkjx.nenu.edu.cn → 全选右键复制",
+  "cookies": {
+    "iPlanetDirectoryPro": "",
+    "JSESSIONID": ""
+  },
+  "grab_list": [],
+  "config": {}
+}

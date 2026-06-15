@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NENU 抢课系统</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f0f2f5; color: #333; min-height: 100vh; }
+header { background: linear-gradient(135deg, #1a3a6b, #2d5aa0); color: #fff; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+header h1 { font-size: 20px; font-weight: 600; }
+header .subtitle { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+nav { background: #fff; border-bottom: 1px solid #e0e0e0; padding: 0 24px; display: flex; gap: 0; flex-wrap: wrap; }
+nav a { padding: 12px 20px; text-decoration: none; color: #666; font-size: 14px; border-bottom: 2px solid transparent; cursor: pointer; transition: all 0.2s; }
+nav a:hover { color: #1a3a6b; background: #f5f7fa; }
+nav a.active { color: #1a3a6b; border-bottom-color: #1a3a6b; font-weight: 600; }
+main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+.page { display: none; }
+.page.active { display: block; }
+
+.card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px; margin-bottom: 16px; }
+.card h3 { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #1a3a6b; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.card h3 .badge { font-size: 12px; background: #e8f0fe; color: #1a3a6b; padding: 2px 8px; border-radius: 10px; font-weight: 400; }
+.form-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 12px; }
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-group label { font-size: 12px; color: #888; font-weight: 500; }
+.form-group input, .form-group select { padding: 8px 12px; border: 1px solid #d0d5dd; border-radius: 6px; font-size: 13px; outline: none; transition: border 0.2s; min-width: 120px; }
+.form-group select { min-width: 140px; cursor: pointer; }
+.form-group input:focus, .form-group select:focus { border-color: #1a3a6b; box-shadow: 0 0 0 2px rgba(26,58,107,0.1); }
+textarea { padding: 8px 12px; border: 1px solid #d0d5dd; border-radius: 6px; font-size: 12px; outline: none; resize: vertical; min-height: 80px; font-family: 'Consolas','Courier New',monospace; width: 100%; }
+textarea:focus { border-color: #1a3a6b; }
+
+.btn { padding: 8px 16px; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; font-weight: 500; white-space: nowrap; }
+.btn-primary { background: #1a3a6b; color: #fff; }
+.btn-primary:hover { background: #2d5aa0; }
+.btn-primary:disabled { background: #a0b4d0; cursor: not-allowed; }
+.btn-success { background: #16a34a; color: #fff; }
+.btn-success:hover { background: #15803d; }
+.btn-danger { background: #dc2626; color: #fff; }
+.btn-danger:hover { background: #b91c1c; }
+.btn-warning { background: #f59e0b; color: #fff; }
+.btn-warning:hover { background: #d97706; }
+.btn-outline { background: #fff; color: #666; border: 1px solid #d0d5dd; }
+.btn-outline:hover { background: #f5f7fa; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+table th { background: #f8f9fb; padding: 10px 12px; text-align: left; font-weight: 600; color: #555; border-bottom: 2px solid #e0e0e0; white-space: nowrap; }
+table td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; }
+table tr:hover td { background: #fafbfc; }
+
+.text-green { color: #16a34a; }
+.text-red { color: #dc2626; }
+.text-muted { color: #999; font-size: 12px; }
+.text-center { text-align: center; }
+
+.badge-status { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.badge-success { background: #dcfce7; color: #16a34a; }
+.badge-warning { background: #fef3c7; color: #d97706; }
+.badge-danger { background: #fee2e2; color: #dc2626; }
+.badge-info { background: #dbeafe; color: #2563eb; }
+.badge-default { background: #f3f4f6; color: #888; }
+
+.login-section { text-align: center; padding: 40px 20px; }
+.login-section textarea { width: 100%; max-width: 600px; }
+.login-status { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 4px 12px; border-radius: 12px; }
+.login-status.online { background: #dcfce7; color: #16a34a; }
+.login-status.offline { background: #fee2e2; color: #dc2626; }
+
+#status-log { height: 300px; overflow-y: auto; background: #1a1a2e; color: #e0e0e0; padding: 12px; border-radius: 6px; font-family: 'Consolas','Courier New',monospace; font-size: 12px; line-height: 1.6; }
+#status-log .t { color: #888; }
+#status-log .ok { color: #4ade80; }
+#status-log .fail { color: #f87171; }
+#status-log .info { color: #60a5fa; }
+#status-log .warn { color: #fbbf24; }
+
+.progress-list { display: flex; flex-direction: column; gap: 8px; }
+.progress-item { display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: #f8f9fb; border-radius: 6px; }
+.progress-item .name { flex: 1; font-weight: 500; }
+
+.config-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.config-grid .item { padding: 8px 12px; background: #f8f9fb; border-radius: 6px; }
+.config-grid .item .l { font-size: 11px; color: #888; }
+.config-grid .item .v { font-size: 14px; font-weight: 600; color: #1a3a6b; }
+
+.campus-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.campus-tabs .tab { padding: 6px 18px; border-radius: 20px; cursor: pointer; font-size: 13px; font-weight: 500; border: 1px solid #d0d5dd; background: #fff; transition: all 0.2s; }
+.campus-tabs .tab:hover { border-color: #1a3a6b; color: #1a3a6b; }
+.campus-tabs .tab.active { background: #1a3a6b; color: #fff; border-color: #1a3a6b; }
+.campus-tabs .tab .count { font-size: 11px; opacity: 0.7; }
+
+.wallet { display: flex; gap: 20px; padding: 12px 20px; background: linear-gradient(135deg, #f0f4ff, #e8f0fe); border-radius: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.wallet .item { text-align: center; }
+.wallet .item .num { font-size: 22px; font-weight: 700; color: #1a3a6b; }
+.wallet .item .l { font-size: 12px; color: #666; }
+
+.toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.toolbar .spacer { flex: 1; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading { display: inline-block; width: 14px; height: 14px; border: 2px solid #e0e0e0; border-top-color: #1a3a6b; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; }
+
+.detail-row { display: none; }
+.detail-row.show { display: table-row; }
+.detail-row td { padding: 8px 12px; background: #f8fafc; }
+.detail-inner { font-size: 12px; }
+.detail-inner .item { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; margin: 2px; border-radius: 4px; }
+.detail-inner .item.hasslot { background: #f0fdf4; }
+.detail-inner .item.full { background: #fef2f2; }
+
+@media (max-width: 768px) {
+    header { flex-direction: column; text-align: center; }
+    .form-row { flex-direction: column; }
+    .form-group { width: 100%; }
+    .form-group input,.form-group select { width: 100%; min-width: unset; }
+}
+</style>
+</head>
+<body>
+
+<header>
+    <div>
+        <h1>NENU 抢课系统</h1>
+        <div class="subtitle">东北师范大学选课辅助 · 支持净月/本部校区课程池</div>
+    </div>
+    <span id="login-badge" class="login-status offline">● 未登录</span>
+</header>
+
+<nav>
+    <a class="active" onclick="switchPage('login')" id="nav-login">Cookie 设置</a>
+    <a onclick="switchPage('search')" id="nav-search">课程查询</a>
+    <a onclick="switchPage('grab')" id="nav-grab">自动抢课</a>
+    <a onclick="switchPage('selected')" id="nav-selected">已选课程</a>
+</nav>
+
+<main>
+
+<!-- Page 1: Cookie -->
+<div id="page-login" class="page active">
+    <div class="card">
+        <h3>登录 Cookie 设置</h3>
+        <div style="margin-bottom:12px;line-height:1.8">
+            <p class="text-muted"><strong>方法一（推荐）：从 Application 面板复制</strong></p>
+            <p class="text-muted" style="padding-left:16px">
+                1. 打开 <a href="https://bkjx.nenu.edu.cn/xsxk.html?xklxdm=08" target="_blank">选课系统</a> 并登录成功<br>
+                2. F12 → 顶部切换到 <strong>Application（应用）</strong> 标签<br>
+                3. 左侧展开 <strong>Cookies</strong> → 点击 <strong>bkjx.nenu.edu.cn</strong><br>
+                4. 任意一个 Cookie 行上右键 → <strong>Select All</strong> → 再右键 → <strong>Copy</strong>（复制的是 Name=Value 格式）<br>
+                5. 全部粘贴到下方输入框
+            </p>
+            <p class="text-muted" style="margin-top:8px"><strong>方法二：从网络请求中复制</strong></p>
+            <p class="text-muted" style="padding-left:16px">
+                1. F12 → Network（网络）标签 → 刷新页面<br>
+                2. 找到任意一个请求（如 <code>config</code>）→ 点开 → <strong>Headers</strong><br>
+                3. 找到 <strong>Request Headers</strong> 里的 <code>Cookie:</code> 整行<br>
+                4. 右键 Copy Value → 粘贴到下方
+            </p>
+            <p class="text-muted" style="margin-top:8px;color:#dc2626;font-size:12px">
+                ※ <code>document.cookie</code> 输出为空是正常的——系统使用了 HttpOnly Cookie，JS 读不到，但 HTTP 请求会自动携带
+            </p>
+        </div>
+        <textarea id="cookie-inp" placeholder="从 Application → Cookies 全选复制后粘贴到这里..."></textarea>
+        <div class="toolbar" style="margin-top:8px">
+            <button class="btn btn-primary" onclick="setCookie()">验证并保存</button>
+            <button class="btn btn-outline" onclick="navigator.clipboard?.readText().then(t=>{document.getElementById('cookie-inp').value=t;showMsg('cookie-result','已从剪贴板粘贴','info')}).catch(()=>showMsg('cookie-result','粘贴失败，请手动粘贴','err'))">从剪贴板粘贴</button>
+        </div>
+        <div id="cookie-result" style="margin-top:8px"></div>
+    </div>
+    <div class="card" id="cfg-card" style="display:none">
+        <h3>选课配置</h3>
+        <div class="config-grid" id="cfg-grid"></div>
+        <div class="wallet" id="wallet-box" style="display:none"></div>
+    </div>
+</div>
+
+<!-- Page 2: Search -->
+<div id="page-search" class="page">
+    <div class="card">
+        <h3>课程查询</h3>
+        <div class="campus-tabs" id="campus-tabs" style="margin-bottom:12px">
+            <div class="tab active" data-code="" onclick="switchCampus(this,'')">全部校区</div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>开课单位</label>
+                <select id="f-kkyxdm"><option value="">(全部)</option></select>
+            </div>
+            <div class="form-group">
+                <label>课程大类</label>
+                <select id="f-kcdldm"><option value="">(全部)</option></select>
+            </div>
+            <div class="form-group">
+                <label>课程名称/编号</label>
+                <input id="f-kcxx" placeholder="关键词">
+            </div>
+            <div class="form-group" style="flex-direction:row;align-items:center;gap:6px">
+                <input type="checkbox" id="f-hasme" style="width:16px;height:16px;margin-top:4px">
+                <label for="f-hasme" style="font-size:12px;margin-top:4px">仅看有名额</label>
+            </div>
+            <div class="form-group" style="justify-content:flex-end">
+                <button class="btn btn-primary" onclick="doSearch()">查询</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="toolbar" style="margin-bottom:8px">
+            <h3 style="margin:0">课程列表</h3>
+            <span id="search-stat" class="text-muted"></span>
+            <div class="spacer"></div>
+            <button class="btn btn-success btn-sm" onclick="addAllShownToGrab()">全部加入抢课</button>
+        </div>
+        <div style="overflow-x:auto">
+            <table>
+                <thead><tr>
+                    <th style="width:30px"><input type="checkbox" onchange="toggleAllCheck(this)"></th>
+                    <th>课程编号</th>
+                    <th>课程名称</th>
+                    <th>开课单位</th>
+                    <th>学分</th>
+                    <th>可选课堂</th>
+                    <th>操作</th>
+                </tr></thead>
+                <tbody id="course-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Page 3: Grab -->
+<div id="page-grab" class="page">
+    <div class="card">
+        <h3>自动抢课 <span class="badge" id="grab-count">0 门</span></h3>
+        <div style="overflow-x:auto;margin-bottom:12px">
+            <table>
+                <thead><tr>
+                    <th>课程名称</th><th>教学班</th><th>教师</th><th>容量</th><th>操作</th>
+                </tr></thead>
+                <tbody id="grab-tbody"></tbody>
+            </table>
+        </div>
+        <div class="toolbar">
+            <button class="btn btn-success" id="btn-grab-start" onclick="startGrab()">开始抢课</button>
+            <button class="btn btn-danger" id="btn-grab-stop" onclick="stopGrab()" disabled>停止</button>
+            <span id="grab-state" class="text-muted">就绪</span>
+        </div>
+    </div>
+    <div class="card" id="progress-card" style="display:none">
+        <h3>抢课进度</h3>
+        <div class="progress-list" id="progress-list"></div>
+    </div>
+    <div class="card">
+        <h3>实时日志</h3>
+        <div id="status-log">等待开始...</div>
+    </div>
+</div>
+
+<!-- Page 4: Selected -->
+<div id="page-selected" class="page">
+    <div class="card">
+        <div class="toolbar" style="margin-bottom:8px">
+            <h3 style="margin:0">已选课程</h3>
+            <div class="spacer"></div>
+            <button class="btn btn-primary btn-sm" onclick="loadSelected()">刷新</button>
+        </div>
+        <div style="overflow-x:auto">
+            <table>
+                <thead><tr>
+                    <th>课程名称</th><th>教师</th><th>教学班</th><th>学分</th><th>上课时间</th><th>场地</th><th>操作</th>
+                </tr></thead>
+                <tbody id="selected-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+</main>
+
+<script>
+// ===== State =====
+let currentCampus = '';
+let grabCourses = [];           // {kcrwdm, kcmc, jxbmc, teaxms, pkrs, jxbrs, xqjc}
+let grabRunning = false;
+let grabTimer = null;
+let grabQueue = [];             // courses still being tried
+let grabSucceeded = [];
+let grabAttempt = 0;
+let grabStop = false;
+
+// ===== Nav =====
+function switchPage(name) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+    document.getElementById('page-'+name).classList.add('active');
+    document.getElementById('nav-'+name).classList.add('active');
+    if (name === 'selected') loadSelected();
+}
+
+// ===== Cookie =====
+function showMsg(id, msg, type) {
+    const el = document.getElementById(id);
+    const colors = {ok:'#16a34a',err:'#dc2626',info:'#2563eb'};
+    el.innerHTML = '<span style="color:'+(colors[type]||'#333')+'">'+msg+'</span>';
+    setTimeout(()=>el.innerHTML='',5000);
+}
+
+async function setCookie() {
+    const c = document.getElementById('cookie-inp').value.trim();
+    if (!c) return showMsg('cookie-result','Cookie 不能为空','err');
+    try {
+        const r = await fetch('/api/cookies/set',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cookies:c})});
+        const d = await r.json();
+        if (d.code>=0) {
+            showMsg('cookie-result','验证通过：'+d.message,'ok');
+            setLoginStatus(true, d.data);
+            loadCombos();
+            loadWallet();
+        } else {
+            showMsg('cookie-result','失败：'+d.message,'err');
+            setLoginStatus(false);
+        }
+    } catch(e) { showMsg('cookie-result','请求失败：'+e.message,'err'); }
+}
+
+function setLoginStatus(ok, cfg) {
+    const b = document.getElementById('login-badge');
+    if (ok) {
+        b.className = 'login-status online'; b.innerHTML = '● 已登录';
+        document.getElementById('cfg-card').style.display = 'block';
+        const g = document.getElementById('cfg-grid');
+        let h = '';
+        const items = [
+            ['学期', cfg?.xkkz?.xnxqmc || cfg?.xnxqmc || '-'],
+            ['类型', cfg?.xklxmc || '-'],
+            ['阶段', cfg?.xkjd !== undefined ? ['','一选','二选','退选','补选'][cfg.xkjd] || cfg.xkjd : '-'],
+            ['可退选', cfg?.xkkz?.iscancel ? '是' : '否'],
+        ];
+        items.forEach(([l,v])=>{ h += '<div class="item"><div class="l">'+l+'</div><div class="v">'+v+'</div></div>'; });
+        g.innerHTML = h;
+    } else {
+        b.className = 'login-status offline'; b.innerHTML = '● 未登录';
+        document.getElementById('cfg-card').style.display = 'none';
+    }
+}
+
+async function loadCombos() {
+    const list = {'f-kkyxdm':'kkyx','f-kcdldm':'kcdl'};
+    for (const [id,guid] of Object.entries(list)) {
+        try {
+            const r = await fetch('/api/combo/'+guid);
+            const d = await r.json();
+            if (d.code===0 && Array.isArray(d.data)) {
+                const sel = document.getElementById(id);
+                sel.innerHTML = '<option value="">(全部)</option>';
+                d.data.forEach(item => { sel.innerHTML += '<option value="'+item.dm+'">'+item.mc+'</option>'; });
+            }
+        } catch(e) {}
+    }
+    // 加载校区列表
+    loadCampusTabs();
+}
+
+async function loadCampusTabs() {
+    try {
+        const r = await fetch('/api/combo/xqdm');
+        const d = await r.json();
+        const tabs = document.getElementById('campus-tabs');
+        if (d.code===0 && Array.isArray(d.data) && d.data.length) {
+            // 保留"全部校区"tab，后面追加实际校区
+            while (tabs.children.length > 1) tabs.removeChild(tabs.lastChild);
+            d.data.forEach(item => {
+                const tab = document.createElement('div');
+                tab.className = 'tab';
+                tab.dataset.code = item.dm;
+                tab.textContent = item.mc;
+                tab.onclick = function(){ switchCampus(this, this.dataset.code); };
+                tabs.appendChild(tab);
+            });
+        }
+    } catch(e) {}
+}
+
+async function loadWallet() {
+    try {
+        const r = await fetch('/api/wallet');
+        const d = await r.json();
+        if (d.zxf !== undefined) {
+            const box = document.getElementById('wallet-box');
+            box.style.display = 'flex';
+            box.innerHTML = '<div class="item"><div class="num">'+(d.zxf||0)+'</div><div class="l">总</div></div>'
+                          + '<div class="item"><div class="num">'+(d.yxxf||0)+'</div><div class="l">已用</div></div>'
+                          + '<div class="item"><div class="num">'+((d.zxf-d.yxxf)||0)+'</div><div class="l">可用</div></div>';
+        }
+    } catch(e) {}
+}
+
+// ===== Campus Tabs =====
+function switchCampus(el, code) {
+    document.querySelectorAll('.campus-tabs .tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    currentCampus = code;
+    doSearch();
+}
+
+// ===== Search =====
+async function doSearch() {
+    const params = {
+        xqdm: currentCampus,
+        kkyxdm: document.getElementById('f-kkyxdm').value,
+        kcdldm: document.getElementById('f-kcdldm').value,
+        kcxx: document.getElementById('f-kcxx').value,
+        hasme: document.getElementById('f-hasme').checked ? 1 : 0,
+    };
+    const tb = document.getElementById('course-tbody');
+    tb.innerHTML = '<tr><td colspan="7" class="text-center" style="padding:30px"><span class="loading"></span> 查询中...</td></tr>';
+    document.getElementById('search-stat').textContent = '';
+    try {
+        const r = await fetch('/api/courses/query',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(params)});
+        const d = await r.json();
+        const rows = d.rows || [];
+        document.getElementById('search-stat').textContent = '共 '+rows.length+' 门';
+        if (!rows.length) {
+            tb.innerHTML = '<tr><td colspan="7" class="text-center text-muted">没有找到课程</td></tr>';
+            return;
+        }
+        let h = '';
+        rows.forEach((c,i) => {
+            const kcptdm = c.kcptdm || '';
+            h += '<tr onclick="toggleDetail('+i+')" style="cursor:pointer">'
+                + '<td onclick="event.stopPropagation()"><input type="checkbox" class="chk-course" data-kcptdm="'+kcptdm+'" data-kcmc="'+esc(c.kcmc)+'"></td>'
+                + '<td>'+(c.kcbh||'-')+'</td>'
+                + '<td><strong>'+esc(c.kcmc)+'</strong></td>'
+                + '<td>'+esc(c.kkyxmc||'')+'</td>'
+                + '<td>'+(c.xf||'-')+'</td>'
+                + '<td><span class="badge-status badge-default" id="stat-'+i+'">点击查看</span></td>'
+                + '<td><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();loadDetail('+i+',\''+kcptdm+'\',\''+esc(c.kcmc)+'\')">查看课堂</button></td>'
+                + '</tr>'
+                + '<tr class="detail-row" id="detail-'+i+'"><td colspan="7"><div class="detail-inner" id="detail-inner-'+i+'">点击「查看课堂」加载...</div></td></tr>';
+        });
+        tb.innerHTML = h;
+    } catch(e) {
+        tb.innerHTML = '<tr><td colspan="7" class="text-center text-red">请求失败: '+e.message+'</td></tr>';
+    }
+}
+
+function toggleDetail(idx) {
+    const el = document.getElementById('detail-'+idx);
+    if (el) el.classList.toggle('show');
+}
+
+async function loadDetail(idx, kcptdm, kcmc) {
+    if (!kcptdm) return;
+    const inner = document.getElementById('detail-inner-'+idx);
+    const stat = document.getElementById('stat-'+idx);
+    inner.innerHTML = '<span class="loading"></span> 加载中...';
+    try {
+        const r = await fetch('/api/courses/query_detail',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kcptdm,xqdm:currentCampus})});
+        const d = await r.json();
+        const rows = d.rows || [];
+        stat.textContent = rows.length+' 个课堂';
+        stat.className = 'badge-status '+(rows.length?'badge-success':'badge-default');
+
+        if (!rows.length) { inner.innerHTML = '<span class="text-muted">无可用课堂</span>'; return; }
+
+        let h = '';
+        rows.forEach(r => {
+            const hasSlot = parseInt(r.jxbrs||0) < parseInt(r.pkrs||0);
+            const inList = grabCourses.some(g => g.kcrwdm === r.kcrwdm);
+            h += '<div class="item '+(hasSlot?'hasslot':'full')+'">'
+                + '<strong>'+esc(r.jxbmc||'')+'</strong>'
+                + ' | '+esc(r.teaxms||'')
+                + ' | '+(r.pkrs||'?')+'/'+(r.jxbrs||'?')
+                + (hasSlot ? ' <span class="badge-status badge-success">有名额</span>' : ' <span class="badge-status badge-danger">已满</span>')
+                + ' | <span style="color:#666">'+esc((r.xqjc||'').substring(0,30))+'</span>'
+                + (inList ? ' <span class="badge-status badge-info">已加入</span>'
+                   : ' <button class="btn btn-sm btn-success" onclick="addToGrab(\''+r.kcrwdm+'\',\''+esc(r.kcmc)+'\',\''+esc(r.jxbmc||'')+'\',\''+esc(r.teaxms||'')+'\',\''+(r.pkrs||0)+'\',\''+(r.jxbrs||0)+'\',\''+esc((r.xqjc||'').substring(0,30))+'\')">加入抢课</button>')
+                + '</div>';
+        });
+        inner.innerHTML = h;
+    } catch(e) {
+        inner.innerHTML = '<span class="text-red">加载失败: '+e.message+'</span>';
+    }
+}
+
+// ===== Grab List Persistence =====
+async function loadGrabListFromServer() {
+    try {
+        const r = await fetch('/api/grab_list');
+        const d = await r.json();
+        if (d.code === 0 && Array.isArray(d.data)) {
+            grabCourses = d.data;
+            renderGrabList();
+        }
+    } catch(e) {}
+}
+
+async function saveGrabListToServer() {
+    try {
+        await fetch('/api/grab_list', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({items: grabCourses})
+        });
+    } catch(e) {}
+}
+
+// ===== Grab List Mgmt =====
+function addToGrab(kcrwdm, kcmc, jxbmc, teaxms, pkrs, jxbrs, xqjc) {
+    if (grabCourses.some(g => g.kcrwdm === kcrwdm)) return;
+    grabCourses.push({kcrwdm,kcmc,jxbmc,teaxms,pkrs,jxbrs,xqjc});
+    renderGrabList();
+    saveGrabListToServer();
+    showTmpMsg('已加入抢课列表: '+kcmc);
+}
+
+function removeGrab(kcrwdm) {
+    grabCourses = grabCourses.filter(g => g.kcrwdm !== kcrwdm);
+    renderGrabList();
+    saveGrabListToServer();
+}
+
+function addAllShownToGrab() {
+    document.querySelectorAll('[onclick*="addToGrab"]').forEach(btn => {
+        try {
+            const m = btn.getAttribute('onclick').match(/addToGrab\((.+?)\)/);
+            if (m) {
+                const a = m[1].split(',').map(s => s.trim().replace(/^'|'$/g,'').replace(/^"|"$/g,''));
+                if (a.length>=2) addToGrab(a[0],a[1],a[2]||'',a[3]||'',a[4]||0,a[5]||0,a[6]||'');
+            }
+        } catch(e) {}
+    });
+    saveGrabListToServer();
+}
+
+function renderGrabList() {
+    const tb = document.getElementById('grab-tbody');
+    document.getElementById('grab-count').textContent = grabCourses.length+' 门';
+    if (!grabCourses.length) {
+        tb.innerHTML = '<tr><td colspan="5" class="text-center text-muted">暂无课程</td></tr>';
+        return;
+    }
+    let h = '';
+    grabCourses.forEach(g => {
+        const hasSlot = parseInt(g.jxbrs) < parseInt(g.pkrs);
+        h += '<tr>'
+            + '<td><strong>'+esc(g.kcmc)+'</strong></td>'
+            + '<td>'+esc(g.jxbmc||'')+'</td>'
+            + '<td>'+esc(g.teaxms||'')+'</td>'
+            + '<td>'+(g.pkrs||'?')+'/'+(g.jxbrs||'?')+' '+(hasSlot?'<span class="badge-status badge-success">有名额</span>':'<span class="badge-status badge-danger">已满</span>')+'</td>'
+            + '<td><button class="btn btn-sm btn-danger" onclick="removeGrab(\''+g.kcrwdm+'\')">移除</button></td>'
+            + '</tr>';
+    });
+    tb.innerHTML = h;
+}
+
+// ===== Auto Grab =====
+async function startGrab() {
+    if (!grabCourses.length) return alert('请先在课程查询页面添加要抢的课程');
+    if (grabRunning) return;
+    grabRunning = true;
+    grabStop = false;
+    grabQueue = [...grabCourses];
+    grabSucceeded = [];
+    grabAttempt = 0;
+    document.getElementById('btn-grab-start').disabled = true;
+    document.getElementById('btn-grab-stop').disabled = false;
+    document.getElementById('grab-state').textContent = '抢课进行中...';
+    document.getElementById('progress-card').style.display = 'block';
+    document.getElementById('status-log').innerHTML = '';
+    addLog('info','抢课启动，目标 '+grabQueue.length+' 门');
+    if (!grabTimer) grabTimer = setInterval(pollGrabStatus, 600);
+    runGrabCycle();
+}
+
+async function runGrabCycle() {
+    while (grabQueue.length > 0 && !grabStop) {
+        grabAttempt++;
+        const next = [];
+        for (const course of grabQueue) {
+            if (grabStop) break;
+            try {
+                const r = await fetch('/api/courses/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kcrwdm:course.kcrwdm,kcmc:course.kcmc})});
+                const d = await r.json();
+                if (d.code >= 0) {
+                    addLog('ok','选课成功: '+course.kcmc);
+                    grabSucceeded.push(course);
+                    continue;
+                } else if (d.code === -2) {
+                    const r2 = await fetch('/api/courses/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kcrwdm:course.kcrwdm,kcmc:course.kcmc,confirm:true})});
+                    const d2 = await r2.json();
+                    if (d2.code >= 0) {
+                        addLog('ok','选课成功(冲突确认): '+course.kcmc);
+                        grabSucceeded.push(course);
+                        continue;
+                    }
+                } else if (d.code === -401) {
+                    addLog('fail','登录过期，停止抢课');
+                    grabStop = true;
+                    break;
+                }
+                if (grabAttempt <= 5 || grabAttempt % 20 === 0) {
+                    addLog('info','第 '+grabAttempt+' 次尝试 ['+course.kcmc+']: '+(d.message||''));
+                }
+                next.push(course);
+            } catch(e) {
+                if (grabAttempt <= 3 || grabAttempt % 20 === 0) {
+                    addLog('warn','请求异常 ['+course.kcmc+']: '+e.message);
+                }
+                next.push(course);
+            }
+        }
+        grabQueue = next;
+        if (grabQueue.length > 0 && !grabStop) await sleep(300);
+    }
+    if (grabQueue.length === 0 && !grabStop) {
+        addLog('ok','全部选课成功！共 '+grabSucceeded.length+' 门');
+    } else if (grabStop) {
+        addLog('info','已停止，成功 '+grabSucceeded.length+'/'+grabCourses.length+' 门');
+    }
+    grabRunning = false;
+    document.getElementById('btn-grab-start').disabled = false;
+    document.getElementById('btn-grab-stop').disabled = true;
+    document.getElementById('grab-state').textContent = '就绪';
+    if (grabTimer) { clearInterval(grabTimer); grabTimer = null; }
+}
+
+function stopGrab() { grabStop = true; addLog('info','正在停止...'); }
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function pollGrabStatus() {
+    const prog = document.getElementById('progress-list');
+    let h = '';
+    grabCourses.forEach(c => {
+        const done = grabSucceeded.some(s => s.kcrwdm === c.kcrwdm);
+        const trying = grabQueue.some(q => q.kcrwdm === c.kcrwdm);
+        const status = done ? '<span class="text-green">已选上</span>'
+                     : (!grabRunning && !trying) ? '<span class="text-red">未成功</span>'
+                     : '<span class="text-muted">尝试 #'+grabAttempt+'</span>';
+        h += '<div class="progress-item"><span class="name">'+esc(c.kcmc)+'</span><span>'+status+'</span></div>';
+    });
+    prog.innerHTML = h;
+}
+
+function addLog(type, msg) {
+    const el = document.getElementById('status-log');
+    const cls = {ok:'ok',fail:'fail',info:'info',warn:'warn'};
+    el.innerHTML += '<div><span class="t">['+now()+']</span> <span class="'+(cls[type]||'info')+'">'+esc(msg)+'</span></div>';
+    el.scrollTop = el.scrollHeight;
+}
+
+function now() {
+    const d = new Date();
+    return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');
+}
+
+// ===== Selected =====
+async function loadSelected() {
+    const tb = document.getElementById('selected-tbody');
+    tb.innerHTML = '<tr><td colspan="7" class="text-center" style="padding:20px"><span class="loading"></span></td></tr>';
+    try {
+        const r = await fetch('/api/courses/selected');
+        const d = await r.json();
+        const rows = d.rows || [];
+        if (!rows.length) { tb.innerHTML = '<tr><td colspan="7" class="text-center text-muted">暂无已选课程</td></tr>'; return; }
+        let h = '';
+        rows.forEach(r => {
+            h += '<tr>'
+                + '<td><strong>'+esc(r.kcmc)+'</strong></td>'
+                + '<td>'+esc(r.teaxms||'')+'</td>'
+                + '<td>'+esc(r.jxbmc||'')+'</td>'
+                + '<td>'+(r.xf||'-')+'</td>'
+                + '<td style="font-size:12px">'+esc((r.xqjc||'').substring(0,30))+'</td>'
+                + '<td style="font-size:12px">'+esc((r.jxcdmcs||'').substring(0,20))+'</td>'
+                + '<td><button class="btn btn-sm btn-danger" onclick="doCancel(\''+r.kcrwdm+'\',\''+esc(r.kcmc)+'\')">退选</button></td>'
+                + '</tr>';
+        });
+        tb.innerHTML = h;
+    } catch(e) {
+        tb.innerHTML = '<tr><td colspan="7" class="text-center text-red">'+e.message+'</td></tr>';
+    }
+}
+
+async function doCancel(kcrwdm, kcmc) {
+    if (!confirm('确定退选「'+kcmc+'」?')) return;
+    try {
+        const r = await fetch('/api/courses/cancel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kcrwdm,kcmc})});
+        const d = await r.json();
+        if (d.code >= 0) { alert('退选成功'); loadSelected(); }
+        else alert(d.message);
+    } catch(e) { alert('退选失败: '+e.message); }
+}
+
+// ===== Util =====
+function esc(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function toggleAllCheck(el) { document.querySelectorAll('.chk-course').forEach(c => c.checked = el.checked); }
+
+let tmpMsgTimer = null;
+function showTmpMsg(msg) {
+    const el = document.createElement('div');
+    el.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#16a34a;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;z-index:9999;box-shadow:0 2px 10px rgba(0,0,0,0.2)';
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 2000);
+}
+
+// ===== Init =====
+document.addEventListener('DOMContentLoaded', async () => {
+    // 抢课列表持久化加载
+    loadGrabListFromServer();
+
+    // Check login
+    try {
+        const r = await fetch('/api/cookies/check');
+        const d = await r.json();
+        if (d.logged_in) {
+            setLoginStatus(true, d.config);
+            loadCombos();
+            loadWallet();
+        }
+    } catch(e) {}
+});
+</script>
+</body>
+</html>

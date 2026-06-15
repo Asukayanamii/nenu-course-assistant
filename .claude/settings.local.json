@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:github.com)",
+      "Bash(gh api *)",
+      "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:bkjx.nenu.edu.cn)",
+      "Read(//d//**)",
+      "Bash(npx playwright *)",
+      "Bash(pip show *)",
+      "Bash(node *)",
+      "Bash(npm ls *)",
+      "Bash(npm install *)",
+      "Bash(python -c \"import playwright; print\\(playwright.__version__\\)\")",
+      "Bash(pip install *)",
+      "Bash(python *)",
+      "Bash(PYTHONIOENCODING=utf-8 python analyze_course_deep.py)",
+      "Bash(wc -c entss.js.txt ntss.js.txt)",
+      "Bash(ls -la entss.js.txt ntss.js.txt)",
+      "Bash(PYTHONIOENCODING=utf-8 python analyze_page.py)",
+      "Bash(curl -s http://127.0.0.1:5000/)",
+      "Bash(pkill -f \"python app.py\")",
+      "Bash(PYTHONIOENCODING=utf-8 python app.py)",
+      "Bash(curl -s http://127.0.0.1:5000/api/cookies/check)",
+      "Bash(curl -s http://127.0.0.1:5000/api/combo/xqdm)",
+      "Bash(pkill -f \"python main.py\")",
+      "Bash(PYTHONIOENCODING=utf-8 python main.py)",
+      "Bash(curl -s http://127.0.0.1:5000/api/grab_list)",
+      "Bash(grep -v \"^$\")",
+      "Bash(rm -f \"D:/py_project/zaxiang/data/storage.json\")",
+      "Bash(git -C \"D:/py_project/zaxiang\" status --short)"
+    ]
+  }
+}
