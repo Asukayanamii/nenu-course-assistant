@@ -2,18 +2,18 @@
 import time
 from flask import Blueprint, render_template, request, jsonify
 
-from .client import CourseClient, BASE_URL, COMMON_XKLXDM
+from .client import CourseClient, BASE_URL
 from . import storage
 
 api = Blueprint('api', __name__)
 
 
-def _make_client():
+def _make_client(xklxdm=None):
     """从持久化存储中加载 cookies 创建客户端"""
     cookies = storage.get_cookies()
     if not cookies:
         return None
-    return CourseClient(cookies, xklxdm=storage.get_xklxdm())
+    return CourseClient(cookies, xklxdm=xklxdm or storage.get_xklxdm())
 
 
 # ==================== 页面 ====================
@@ -75,41 +75,6 @@ def clear_cookies():
     return jsonify({'code': 0, 'message': '已清除'})
 
 
-# ==================== XKLXDM ====================
-
-@api.route('/api/xklxdm')
-def get_xklxdm():
-    return jsonify({'code': 0, 'xklxdm': storage.get_xklxdm()})
-
-
-@api.route('/api/xklxdm/detect', methods=['POST'])
-def detect_xklxdm():
-    """尝试常见选课类型代码，返回第一个可用的"""
-    data = request.json or {}
-    raw = data.get('cookies', '').strip()
-    cookie_dict = {}
-    for item in raw.split(';'):
-        item = item.strip()
-        if '=' in item:
-            k, v = item.split('=', 1)
-            cookie_dict[k] = v
-
-    if not cookie_dict:
-        return jsonify({'code': -1, 'message': 'Cookie 不能为空', 'found': None})
-
-    for code in COMMON_XKLXDM:
-        client = CourseClient(cookie_dict, xklxdm=code)
-        result = client.load_config()
-        if result.get('code', -1) >= 0:
-            return jsonify({
-                'code': 0,
-                'found': code,
-                'xklxmc': result.get('data', {}).get('xklxmc', ''),
-            })
-
-    return jsonify({'code': -1, 'message': '未找到可用的选课类型代码', 'found': None})
-
-
 # ==================== 配置与下拉 ====================
 
 @api.route('/api/combo/<guid>')
@@ -148,13 +113,31 @@ def query_courses():
         return jsonify({'code': -1, 'message': '未登录', 'rows': []})
 
     data = request.json or {}
+    pools = data.get('pools', [])
+    if not pools:
+        pools = [storage.get_xklxdm()]
+
     params = {}
     for key in ['xqdm', 'kkyxdm', 'nd', 'zydm', 'kcdldm', 'xq', 'jc', 'kcxx', 'kcfl', 'hasme']:
         val = data.get(key)
         if val or val == 0:
             params[key] = val
 
-    return jsonify(client.query_hzkc(params=params))
+    all_rows = []
+    seen = set()
+    for xklxdm in pools:
+        result = client.query_hzkc(params=params, xklxdm=xklxdm)
+        for row in result.get('rows', []):
+            row['_xklxdm'] = xklxdm
+            # 按课程编号去重（同一门课可能出现在多个池子）
+            kcbh = row.get('kcbh', '')
+            if kcbh and kcbh in seen:
+                continue
+            if kcbh:
+                seen.add(kcbh)
+            all_rows.append(row)
+
+    return jsonify({'code': 0, 'rows': all_rows, 'total': len(all_rows)})
 
 
 @api.route('/api/courses/query_detail', methods=['POST'])
@@ -166,13 +149,17 @@ def get_available():
 
     data = request.json or {}
     kcptdm = data.get('kcptdm', '')
+    xklxdm = data.get('xklxdm') or storage.get_xklxdm()
     extra = {}
     for key in ['xqdm', 'hasme', 'page', 'rows']:
         val = data.get(key)
         if val is not None:
             extra[key] = val
 
-    return jsonify(client.query_kxkc(kcptdm=kcptdm, extra_params=extra))
+    result = client.query_kxkc(kcptdm=kcptdm, extra_params=extra, xklxdm=xklxdm)
+    for row in result.get('rows', []):
+        row['_xklxdm'] = xklxdm
+    return jsonify(result)
 
 
 @api.route('/api/courses/selected')
@@ -187,11 +174,12 @@ def get_selected():
 
 @api.route('/api/courses/add', methods=['POST'])
 def add_course():
-    client = _make_client()
+    data = request.json or {}
+    xklxdm = data.get('xklxdm') or storage.get_xklxdm()
+    client = _make_client(xklxdm=xklxdm)
     if not client:
         return jsonify({'code': -1, 'message': '未登录'})
 
-    data = request.json or {}
     kcrwdm = data.get('kcrwdm', '')
     kcmc = data.get('kcmc', '')
     qz = data.get('qz', -1)
@@ -199,26 +187,28 @@ def add_course():
     if not kcrwdm:
         return jsonify({'code': -1, 'message': '缺少课程任务码'})
 
-    result = client.add_course(kcrwdm, kcmc, qz)
+    result = client.add_course(kcrwdm, kcmc, qz, xklxdm=xklxdm)
 
     # 冲突确认
     if result.get('code') == -2 and data.get('confirm'):
-        result = client.add_course(kcrwdm, kcmc, qz, hlct=1)
+        result = client.add_course(kcrwdm, kcmc, qz, hlct=1, xklxdm=xklxdm)
 
     return jsonify(result)
 
 
 @api.route('/api/courses/cancel', methods=['POST'])
 def cancel_course():
-    client = _make_client()
+    data = request.json or {}
+    xklxdm = data.get('xklxdm') or storage.get_xklxdm()
+    client = _make_client(xklxdm=xklxdm)
     if not client:
         return jsonify({'code': -1, 'message': '未登录'})
 
-    data = request.json or {}
     result = client.cancel_course(
         data.get('kcrwdm', ''),
         data.get('jxbdm', ''),
-        data.get('kcmc', '')
+        data.get('kcmc', ''),
+        xklxdm=xklxdm,
     )
     return jsonify(result)
 
@@ -245,6 +235,7 @@ def save_grab_list():
             'pkrs': item.get('pkrs', 0),
             'jxbrs': item.get('jxbrs', 0),
             'xqjc': item.get('xqjc', ''),
+            'xklxdm': item.get('xklxdm', ''),
         })
     storage.save_grab_list(cleaned)
     return jsonify({'code': 0, 'message': f'已保存 {len(cleaned)} 门课程'})
