@@ -554,6 +554,8 @@ function renderGrabList() {
 }
 
 // ===== Auto Grab =====
+let grabSkipped = [];   // courses with time conflicts that won't resolve
+
 async function startGrab() {
     if (!grabCourses.length) return alert('请先在课程查询页面添加要抢的课程');
     if (grabRunning) return;
@@ -561,6 +563,7 @@ async function startGrab() {
     grabStop = false;
     grabQueue = [...grabCourses];
     grabSucceeded = [];
+    grabSkipped = [];
     grabAttempt = 0;
     document.getElementById('btn-grab-start').disabled = true;
     document.getElementById('btn-grab-stop').disabled = false;
@@ -598,14 +601,16 @@ async function runGrabCycle() {
                     grabStop = true;
                     break;
                 }
-                if (grabAttempt <= 5 || grabAttempt % 20 === 0) {
-                    addLog('info','第 '+grabAttempt+' 次尝试 ['+course.kcmc+']: '+(d.message||''));
+                // 时间冲突不会自己消失，跳过不再重试
+                if (d.message && d.message.includes('上课时间有冲突')) {
+                    addLog('fail','跳过 [ '+course.kcmc+' ]: '+d.message);
+                    grabSkipped.push(course);
+                    continue;
                 }
+                addLog('info','第 '+grabAttempt+' 次尝试 ['+course.kcmc+']: '+(d.message||''));
                 next.push(course);
             } catch(e) {
-                if (grabAttempt <= 3 || grabAttempt % 20 === 0) {
-                    addLog('warn','请求异常 ['+course.kcmc+']: '+e.message);
-                }
+                addLog('warn','请求异常 ['+course.kcmc+']: '+e.message);
                 next.push(course);
             }
         }
@@ -613,9 +618,11 @@ async function runGrabCycle() {
         if (grabQueue.length > 0 && !grabStop) await sleep(300);
     }
     if (grabQueue.length === 0 && !grabStop) {
-        addLog('ok','全部选课成功！共 '+grabSucceeded.length+' 门');
+        let msg = '全部完成！成功 '+grabSucceeded.length+'门';
+        if (grabSkipped.length) msg += '，因时间冲突跳过 '+grabSkipped.length+'门';
+        addLog('ok', msg);
     } else if (grabStop) {
-        addLog('info','已停止，成功 '+grabSucceeded.length+'/'+grabCourses.length+' 门');
+        addLog('info','已停止，成功 '+grabSucceeded.length+'/'+grabCourses.length+'门');
     }
     grabRunning = false;
     document.getElementById('btn-grab-start').disabled = false;

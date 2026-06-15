@@ -4,7 +4,7 @@ import os
 import shutil
 import time
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data')
 DATA_FILE = os.path.join(DATA_DIR, 'storage.json')
 TEMPLATE_FILE = os.path.join(DATA_DIR, 'storage.template.json')
 

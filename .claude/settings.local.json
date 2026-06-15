@@ -29,7 +29,27 @@
       "Bash(curl -s http://127.0.0.1:5000/api/grab_list)",
       "Bash(grep -v \"^$\")",
       "Bash(rm -f \"D:/py_project/zaxiang/data/storage.json\")",
-      "Bash(git -C \"D:/py_project/zaxiang\" status --short)"
+      "Bash(git -C \"D:/py_project/zaxiang\" status --short)",
+      "Bash(cmd //c \"dir D:\\\\py_project\\\\zaxiang\")",
+      "Bash(cmd //c \"tasklist /fi \\\\\"IMAGENAME eq python*\\\\\" 2>nul | findstr python\")",
+      "Bash(tasklist //fi \"IMAGENAME eq python.exe\" //nh)",
+      "Bash(tasklist)",
+      "Bash(netstat -ano)",
+      "Bash(findstr \":5000\")",
+      "Bash(cmd *)",
+      "Bash(taskkill -f -pid 2072)",
+      "Bash(taskkill -f -pid 29616)",
+      "Bash(taskkill -f -pid 21728)",
+      "Bash(taskkill -f -pid 17024)",
+      "Bash(taskkill -f -pid 20620)",
+      "Bash(findstr \"LISTENING\")",
+      "Bash(wmic process *)",
+      "Bash(tasklist /v /fi \"PID eq 2072\" /fo list)",
+      "Bash(powershell *)",
+      "Bash(taskkill.exe -f -pid 2072)",
+      "Bash(taskkill.exe -f -pid 21728)",
+      "Bash(taskkill.exe -f -pid 29616)",
+      "Bash(taskkill.exe -f -im python.exe)"
     ]
   }
 }

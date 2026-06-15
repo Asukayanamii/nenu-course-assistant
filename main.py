@@ -4,8 +4,9 @@ import os
 import sys
 import logging
 
+_BASE = os.path.abspath(os.path.dirname(__file__))
 # 确保能正确 import app 包
-sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, _BASE)
 
 from flask import Flask
 from app.web import api
@@ -14,7 +15,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(me
 
 
 def create_app():
-    template_dir = os.path.join(os.path.dirname(__file__), 'app', 'templates')
+    template_dir = os.path.join(_BASE, 'app', 'templates')
     app = Flask(__name__, template_folder=template_dir)
     app.secret_key = 'nenu-course-grabber-secret'
     app.register_blueprint(api)
