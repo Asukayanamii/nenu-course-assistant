@@ -148,12 +148,14 @@ table tr:hover td { background: #fafbfc; }
                 4. 任意一个 Cookie 行上右键 → <strong>Select All</strong> → 再右键 → <strong>Copy</strong>（复制的是 Name=Value 格式）<br>
                 5. 全部粘贴到下方输入框
             </p>
-            <p class="text-muted" style="margin-top:8px"><strong>方法二：从网络请求中复制</strong></p>
+            <p class="text-muted" style="margin-top:8px"><strong>方法二（Edge 网络面板）：从 config 请求头复制</strong></p>
             <p class="text-muted" style="padding-left:16px">
-                1. F12 → Network（网络）标签 → 刷新页面<br>
-                2. 找到任意一个请求（如 <code>config</code>）→ 点开 → <strong>Headers</strong><br>
-                3. 找到 <strong>Request Headers</strong> 里的 <code>Cookie:</code> 整行<br>
-                4. 右键 Copy Value → 粘贴到下方
+                1. 打开 <a href="https://bkjx.nenu.edu.cn/xsxk.html?xklxdm=08" target="_blank">选课系统</a> 并登录成功<br>
+                2. F12 → 切换到 <strong>Network（网络）</strong> 标签<br>
+                3. 按 <strong>Ctrl+R</strong> 刷新页面，在请求列表中找到 <code>config</code> 这个请求<br>
+                4. 点击 <code>config</code> → 右侧点 <strong>Headers（请求头）</strong><br>
+                5. 往下翻找到 <strong>Request Headers</strong> 里的 <code>Cookie:</code> 一行<br>
+                6. 在 <code>Cookie:</code> 行上右键 → <strong>Copy value</strong> → 粘贴到下方
             </p>
             <p class="text-muted" style="margin-top:8px;color:#dc2626;font-size:12px">
                 ※ <code>document.cookie</code> 输出为空是正常的——系统使用了 HttpOnly Cookie，JS 读不到，但 HTTP 请求会自动携带
