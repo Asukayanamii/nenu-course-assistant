@@ -305,6 +305,16 @@ table tr:hover td { background: #fafbfc; }
                 <tbody id="grab-tbody"></tbody>
             </table>
         </div>
+        <div class="form-row" style="margin-bottom:8px">
+            <div class="form-group">
+                <label>选课间隔 (同一轮内每门课之间, ms)</label>
+                <input id="f-req-delay" type="number" min="0" max="10000" step="50" value="200" style="width:120px">
+            </div>
+            <div class="form-group">
+                <label>轮次间隔 (每轮之间, ms)</label>
+                <input id="f-cycle-delay" type="number" min="0" max="30000" step="50" value="300" style="width:120px">
+            </div>
+        </div>
         <div class="toolbar">
             <button class="btn btn-success" id="btn-grab-start" onclick="startGrab()">开始抢课</button>
             <button class="btn btn-danger" id="btn-grab-stop" onclick="stopGrab()" disabled>停止</button>
@@ -634,6 +644,11 @@ async function startGrab() {
 }
 
 async function runGrabCycle() {
+    const reqDelay = parseInt(document.getElementById('f-req-delay').value) || 0;
+    const cycleDelay = parseInt(document.getElementById('f-cycle-delay').value) || 300;
+    localStorage.setItem('grab_req_delay', reqDelay);
+    localStorage.setItem('grab_cycle_delay', cycleDelay);
+
     while (grabQueue.length > 0 && !grabStop) {
         grabAttempt++;
         const next = [];
@@ -647,6 +662,7 @@ async function runGrabCycle() {
                 if (d.code >= 0) {
                     addLog('ok','选课成功: '+course.kcmc);
                     grabSucceeded.push(course);
+                    if (reqDelay > 0) await sleep(reqDelay);
                     continue;
                 } else if (d.code === -2) {
                     const r2 = await fetch('/api/courses/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,confirm:true})});
@@ -654,6 +670,7 @@ async function runGrabCycle() {
                     if (d2.code >= 0) {
                         addLog('ok','选课成功(冲突确认): '+course.kcmc);
                         grabSucceeded.push(course);
+                        if (reqDelay > 0) await sleep(reqDelay);
                         continue;
                     }
                 } else if (d.code === -401) {
@@ -665,6 +682,7 @@ async function runGrabCycle() {
                 if (d.message && d.message.includes('上课时间有冲突')) {
                     addLog('fail','跳过 [ '+course.kcmc+' ]: '+d.message);
                     grabSkipped.push(course);
+                    if (reqDelay > 0) await sleep(reqDelay);
                     continue;
                 }
                 addLog('info','第 '+grabAttempt+' 次尝试 ['+course.kcmc+']: '+(d.message||''));
@@ -673,9 +691,10 @@ async function runGrabCycle() {
                 addLog('warn','请求异常 ['+course.kcmc+']: '+e.message);
                 next.push(course);
             }
+            if (reqDelay > 0) await sleep(reqDelay);
         }
         grabQueue = next;
-        if (grabQueue.length > 0 && !grabStop) await sleep(300);
+        if (grabQueue.length > 0 && !grabStop) await sleep(cycleDelay);
     }
     if (grabQueue.length === 0 && !grabStop) {
         let msg = '全部完成！成功 '+grabSucceeded.length+'门';
@@ -775,6 +794,12 @@ function showTmpMsg(msg) {
 document.addEventListener('DOMContentLoaded', async () => {
     // 抢课列表持久化加载
     loadGrabListFromServer();
+
+    // 恢复频率设置
+    const savedReq = localStorage.getItem('grab_req_delay');
+    const savedCycle = localStorage.getItem('grab_cycle_delay');
+    if (savedReq !== null) document.getElementById('f-req-delay').value = savedReq;
+    if (savedCycle !== null) document.getElementById('f-cycle-delay').value = savedCycle;
 
     // Check login
     try {
