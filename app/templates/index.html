@@ -168,6 +168,19 @@ table tr:hover td { background: #fafbfc; }
         </div>
         <div id="cookie-result" style="margin-top:8px"></div>
     </div>
+    <div class="card">
+        <h3>选课类型 <span class="badge" id="xklxdm-badge">08（预选）</span></h3>
+        <p class="text-muted">预选=08，正选=01，补选=09。如果正选时接口变了，在这里改一下再重新验证 Cookie 即可。</p>
+        <div class="form-row" style="margin:8px 0 0">
+            <div class="form-group">
+                <label>选课类型代码</label>
+                <input id="xklxdm-inp" value="08" style="width:80px;text-align:center">
+            </div>
+            <div class="form-group" style="justify-content:flex-end">
+                <button class="btn btn-outline btn-sm" onclick="detectXklxdm()" id="btn-xklxdm-detect">自动检测</button>
+            </div>
+        </div>
+    </div>
     <div class="card" id="cfg-card" style="display:none">
         <h3>选课配置</h3>
         <div class="config-grid" id="cfg-grid"></div>
@@ -309,19 +322,52 @@ function showMsg(id, msg, type) {
 async function setCookie() {
     const c = document.getElementById('cookie-inp').value.trim();
     if (!c) return showMsg('cookie-result','Cookie 不能为空','err');
+    const xklxdm = document.getElementById('xklxdm-inp').value.trim() || '08';
     try {
-        const r = await fetch('/api/cookies/set',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cookies:c})});
+        const r = await fetch('/api/cookies/set',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cookies:c, xklxdm:xklxdm})});
         const d = await r.json();
         if (d.code>=0) {
             showMsg('cookie-result','验证通过：'+d.message,'ok');
             setLoginStatus(true, d.data);
             loadCombos();
             loadWallet();
+            loadXklxdm();
         } else {
             showMsg('cookie-result','失败：'+d.message,'err');
             setLoginStatus(false);
         }
     } catch(e) { showMsg('cookie-result','请求失败：'+e.message,'err'); }
+}
+
+async function detectXklxdm() {
+    const c = document.getElementById('cookie-inp').value.trim();
+    if (!c) return showMsg('cookie-result','请先粘贴 Cookie 再检测','err');
+    const btn = document.getElementById('btn-xklxdm-detect');
+    btn.disabled = true; btn.textContent = '检测中...';
+    try {
+        const r = await fetch('/api/xklxdm/detect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cookies:c})});
+        const d = await r.json();
+        if (d.found) {
+            document.getElementById('xklxdm-inp').value = d.found;
+            const label = d.xklxmc ? ' ('+d.xklxmc+')' : '';
+            document.getElementById('xklxdm-badge').textContent = d.found + label;
+            showMsg('cookie-result','检测到选课类型: '+d.found+(d.xklxmc?' ('+d.xklxmc+')':''),'ok');
+        } else {
+            showMsg('cookie-result','未检测到可用的选课类型：'+d.message,'err');
+        }
+    } catch(e) { showMsg('cookie-result','检测失败：'+e.message,'err'); }
+    btn.disabled = false; btn.textContent = '自动检测';
+}
+
+async function loadXklxdm() {
+    try {
+        const r = await fetch('/api/xklxdm');
+        const d = await r.json();
+        if (d.code === 0) {
+            document.getElementById('xklxdm-inp').value = d.xklxdm || '08';
+            document.getElementById('xklxdm-badge').textContent = d.xklxdm || '08';
+        }
+    } catch(e) {}
 }
 
 function setLoginStatus(ok, cfg) {
@@ -720,6 +766,7 @@ function showTmpMsg(msg) {
 document.addEventListener('DOMContentLoaded', async () => {
     // 抢课列表持久化加载
     loadGrabListFromServer();
+    loadXklxdm();
 
     // Check login
     try {

@@ -18,6 +18,7 @@ _default = {
     'cookies': {},           # cookie_dict
     'grab_list': [],         # [{kcrwdm, kcmc, jxbmc, teaxms, pkrs, jxbrs, xqjc}, ...]
     'config': {},            # 选课配置缓存
+    'xklxdm': '08',          # 选课类型代码，预选=08
     'updated_at': '',
 }
 
@@ -75,4 +76,14 @@ def get_config():
 def save_config(cfg):
     data = load()
     data['config'] = cfg
+    save(data)
+
+
+def get_xklxdm():
+    return load().get('xklxdm', '08')
+
+
+def save_xklxdm(val):
+    data = load()
+    data['xklxdm'] = val
     save(data)

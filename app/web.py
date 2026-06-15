@@ -2,7 +2,7 @@
 import time
 from flask import Blueprint, render_template, request, jsonify
 
-from .client import CourseClient, BASE_URL, XKLXDM
+from .client import CourseClient, BASE_URL, COMMON_XKLXDM
 from . import storage
 
 api = Blueprint('api', __name__)
@@ -13,7 +13,7 @@ def _make_client():
     cookies = storage.get_cookies()
     if not cookies:
         return None
-    return CourseClient(cookies)
+    return CourseClient(cookies, xklxdm=storage.get_xklxdm())
 
 
 # ==================== 页面 ====================
@@ -43,13 +43,17 @@ def set_cookies():
     if not cookie_dict:
         return jsonify({'code': -1, 'message': '未解析到有效的 Cookie'})
 
+    # 获取选课类型代码
+    xklxdm = data.get('xklxdm', '') or storage.get_xklxdm() or '08'
+
     # 验证
-    client = CourseClient(cookie_dict)
+    client = CourseClient(cookie_dict, xklxdm=xklxdm)
     result = client.load_config()
 
     if result.get('code', -1) >= 0:
         storage.save_cookies(cookie_dict)
         storage.save_config(result.get('data', {}))
+        storage.save_xklxdm(xklxdm)
         return jsonify({'code': 0, 'message': '验证通过', 'data': result['data']})
     else:
         return jsonify({'code': -1, 'message': result.get('message', '验证失败')})
@@ -69,6 +73,41 @@ def check_login():
 def clear_cookies():
     storage.save_cookies({})
     return jsonify({'code': 0, 'message': '已清除'})
+
+
+# ==================== XKLXDM ====================
+
+@api.route('/api/xklxdm')
+def get_xklxdm():
+    return jsonify({'code': 0, 'xklxdm': storage.get_xklxdm()})
+
+
+@api.route('/api/xklxdm/detect', methods=['POST'])
+def detect_xklxdm():
+    """尝试常见选课类型代码，返回第一个可用的"""
+    data = request.json or {}
+    raw = data.get('cookies', '').strip()
+    cookie_dict = {}
+    for item in raw.split(';'):
+        item = item.strip()
+        if '=' in item:
+            k, v = item.split('=', 1)
+            cookie_dict[k] = v
+
+    if not cookie_dict:
+        return jsonify({'code': -1, 'message': 'Cookie 不能为空', 'found': None})
+
+    for code in COMMON_XKLXDM:
+        client = CourseClient(cookie_dict, xklxdm=code)
+        result = client.load_config()
+        if result.get('code', -1) >= 0:
+            return jsonify({
+                'code': 0,
+                'found': code,
+                'xklxmc': result.get('data', {}).get('xklxmc', ''),
+            })
+
+    return jsonify({'code': -1, 'message': '未找到可用的选课类型代码', 'found': None})
 
 
 # ==================== 配置与下拉 ====================

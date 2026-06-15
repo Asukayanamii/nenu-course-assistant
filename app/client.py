@@ -7,13 +7,13 @@ from urllib.parse import urljoin
 logger = logging.getLogger(__name__)
 
 BASE_URL = 'https://bkjx.nenu.edu.cn'
-XKLXDM = '08'
+COMMON_XKLXDM = ['08', '09', '01', '02', '00']
 
 
 class CourseClient:
     """纯 API 客户端，只负责发请求，不负责存储"""
 
-    def __init__(self, cookies_dict=None):
+    def __init__(self, cookies_dict=None, xklxdm='08'):
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -21,6 +21,7 @@ class CourseClient:
         })
         self.config = None
         self._last_activity = 0
+        self.xklxdm = xklxdm
 
         if cookies_dict:
             self.set_cookies(cookies_dict)
@@ -31,7 +32,7 @@ class CourseClient:
 
     def _api_post(self, path, data=None, referer=None):
         url = urljoin(BASE_URL, path)
-        headers = {'Referer': referer or f'{BASE_URL}/xsxk.html?xklxdm={XKLXDM}'}
+        headers = {'Referer': referer or f'{BASE_URL}/xsxk.html?xklxdm={self.xklxdm}'}
         resp = self.session.post(url, data=data, headers=headers, timeout=15)
         self._last_activity = time.time()
         try:
@@ -58,7 +59,7 @@ class CourseClient:
 
     # ----- 配置 -----
     def load_config(self):
-        r = self._api_post(f'/new/student/xsxk/xklx/{XKLXDM}/config', {})
+        r = self._api_post(f'/new/student/xsxk/xklx/{self.xklxdm}/config', {})
         if r.get('code', -1) >= 0:
             self.config = r['data']
         return r
@@ -74,7 +75,7 @@ class CourseClient:
         data = {'page': page, 'rows': rows, 'nd': '', 'zydm': ''}
         if params:
             data.update(params)
-        return self._api_post(f'/new/student/xsxk/xklx/{XKLXDM}/hzkc', data)
+        return self._api_post(f'/new/student/xsxk/xklx/{self.xklxdm}/hzkc', data)
 
     def query_kxkc(self, kcptdm=None, hasme=0, page=1, rows=50, extra_params=None):
         data = {'page': page, 'rows': rows, 'hasme': hasme}
@@ -82,17 +83,17 @@ class CourseClient:
             data['kcptdm'] = kcptdm
         if extra_params:
             data.update(extra_params)
-        return self._api_post(f'/new/student/xsxk/xklx/{XKLXDM}/kxkc', data)
+        return self._api_post(f'/new/student/xsxk/xklx/{self.xklxdm}/kxkc', data)
 
     def query_yxkc(self, page=1, rows=50):
-        return self._api_post(f'/new/student/xsxk/xklx/{XKLXDM}/yxkc',
+        return self._api_post(f'/new/student/xsxk/xklx/{self.xklxdm}/yxkc',
                               {'page': page, 'rows': rows})
 
     # ----- 选课操作 -----
     def add_course(self, kcrwdm, kcmc='', qz=-1, hlct=0):
-        return self._api_post(f'/new/student/xsxk/xklx/{XKLXDM}/add',
+        return self._api_post(f'/new/student/xsxk/xklx/{self.xklxdm}/add',
                               {'kcrwdm': kcrwdm, 'kcmc': kcmc, 'qz': qz, 'hlct': hlct})
 
     def cancel_course(self, kcrwdm, jxbdm='', kcmc=''):
-        return self._api_post(f'/new/student/xsxk/xklx/{XKLXDM}/cancel',
+        return self._api_post(f'/new/student/xsxk/xklx/{self.xklxdm}/cancel',
                               {'kcrwdm': kcrwdm, 'jxbdm': jxbdm, 'kcmc': kcmc})
