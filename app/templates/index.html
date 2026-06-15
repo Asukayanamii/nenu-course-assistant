@@ -198,6 +198,63 @@ table tr:hover td { background: #fafbfc; }
                 <select id="f-kcdldm"><option value="">(全部)</option></select>
             </div>
             <div class="form-group">
+                <label>年级</label>
+                <select id="f-nd"><option value="">(全部)</option></select>
+            </div>
+            <div class="form-group">
+                <label>专业</label>
+                <select id="f-zydm"><option value="">(全部)</option></select>
+            </div>
+            <div class="form-group">
+                <label>星期</label>
+                <select id="f-xq">
+                    <option value="">(全部)</option>
+                    <option value="1">周一</option>
+                    <option value="2">周二</option>
+                    <option value="3">周三</option>
+                    <option value="4">周四</option>
+                    <option value="5">周五</option>
+                    <option value="6">周六</option>
+                    <option value="7">周日</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>节次(起)</label>
+                <select id="f-jc-start">
+                    <option value="">(不限)</option>
+                    <option value="1">第1节</option>
+                    <option value="2">第2节</option>
+                    <option value="3">第3节</option>
+                    <option value="4">第4节</option>
+                    <option value="5">第5节</option>
+                    <option value="6">第6节</option>
+                    <option value="7">第7节</option>
+                    <option value="8">第8节</option>
+                    <option value="9">第9节</option>
+                    <option value="10">第10节</option>
+                    <option value="11">第11节</option>
+                    <option value="12">第12节</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>节次(止)</label>
+                <select id="f-jc-end">
+                    <option value="">(不限)</option>
+                    <option value="1">第1节</option>
+                    <option value="2">第2节</option>
+                    <option value="3">第3节</option>
+                    <option value="4">第4节</option>
+                    <option value="5">第5节</option>
+                    <option value="6">第6节</option>
+                    <option value="7">第7节</option>
+                    <option value="8">第8节</option>
+                    <option value="9">第9节</option>
+                    <option value="10">第10节</option>
+                    <option value="11">第11节</option>
+                    <option value="12">第12节</option>
+                </select>
+            </div>
+            <div class="form-group">
                 <label>课程名称/编号</label>
                 <input id="f-kcxx" placeholder="关键词">
             </div>
@@ -353,7 +410,7 @@ function setLoginStatus(ok, cfg) {
 }
 
 async function loadCombos() {
-    const list = {'f-kkyxdm':'kkyx','f-kcdldm':'kcdl'};
+    const list = {'f-kkyxdm':'kkyx','f-kcdldm':'kcdl','f-nd':'nd','f-zydm':'zydm'};
     for (const [id,guid] of Object.entries(list)) {
         try {
             const r = await fetch('/api/combo/'+guid);
@@ -387,9 +444,20 @@ async function doSearch() {
     document.querySelectorAll('.pool-cb:checked').forEach(cb => pools.push(cb.value));
     if (!pools.length) return alert('请至少选择一个课程池');
 
+    // 节次范围: 起~止 → 逗号分隔
+    const jcStart = document.getElementById('f-jc-start').value;
+    const jcEnd = document.getElementById('f-jc-end').value;
+    let jc = '';
+    if (jcStart && jcEnd) jc = jcStart + ',' + jcEnd;
+    else if (jcStart) jc = jcStart;
+
     const params = {
         kkyxdm: document.getElementById('f-kkyxdm').value,
         kcdldm: document.getElementById('f-kcdldm').value,
+        nd: document.getElementById('f-nd').value,
+        zydm: document.getElementById('f-zydm').value,
+        xq: document.getElementById('f-xq').value,
+        jc: jc,
         kcxx: document.getElementById('f-kcxx').value,
         hasme: document.getElementById('f-hasme').checked ? 1 : 0,
     };
