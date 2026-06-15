@@ -428,16 +428,16 @@ async function doSearch() {
         let h = '';
         rows.forEach((c,i) => {
             const kcptdm = c.kcptdm || '';
-            h += '<tr onclick="toggleDetail('+i+')" style="cursor:pointer">'
+            h += '<tr onclick="toggleDetail('+i+',\''+kcptdm+'\',\''+esc(c.kcmc)+'\')" style="cursor:pointer">'
                 + '<td onclick="event.stopPropagation()"><input type="checkbox" class="chk-course" data-kcptdm="'+kcptdm+'" data-kcmc="'+esc(c.kcmc)+'"></td>'
                 + '<td>'+(c.kcbh||'-')+'</td>'
                 + '<td><strong>'+esc(c.kcmc)+'</strong></td>'
                 + '<td>'+esc(c.kkyxmc||'')+'</td>'
                 + '<td>'+(c.xf||'-')+'</td>'
-                + '<td><span class="badge-status badge-default" id="stat-'+i+'">点击查看</span></td>'
-                + '<td><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();loadDetail('+i+',\''+kcptdm+'\',\''+esc(c.kcmc)+'\')">查看课堂</button></td>'
+                + '<td><span class="badge-status badge-default" id="stat-'+i+'">点击展开</span></td>'
+                + '<td><span class="text-muted" style="font-size:12px">点击行展开</span></td>'
                 + '</tr>'
-                + '<tr class="detail-row" id="detail-'+i+'"><td colspan="7"><div class="detail-inner" id="detail-inner-'+i+'">点击「查看课堂」加载...</div></td></tr>';
+                + '<tr class="detail-row" id="detail-'+i+'"><td colspan="7"><div class="detail-inner" id="detail-inner-'+i+'"></div></td></tr>';
         });
         tb.innerHTML = h;
     } catch(e) {
@@ -445,9 +445,12 @@ async function doSearch() {
     }
 }
 
-function toggleDetail(idx) {
+function toggleDetail(idx, kcptdm, kcmc) {
     const el = document.getElementById('detail-'+idx);
-    if (el) el.classList.toggle('show');
+    if (!el) return;
+    const show = !el.classList.contains('show');
+    el.classList.toggle('show');
+    if (show && kcptdm) loadDetail(idx, kcptdm, kcmc);
 }
 
 async function loadDetail(idx, kcptdm, kcmc) {
