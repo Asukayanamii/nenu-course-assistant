@@ -355,6 +355,7 @@ async function runGrabCycle() {
     const cycleDelay = parseInt(document.getElementById('f-cycle-delay').value) || 300;
     localStorage.setItem('grab_req_delay', reqDelay);
     localStorage.setItem('grab_cycle_delay', cycleDelay);
+    localStorage.setItem('grab_skip_conflict', document.getElementById('f-skip-conflict').checked ? '1' : '0');
 
     while (grabQueue.length > 0 && !grabStop) {
         grabAttempt++;
@@ -385,12 +386,20 @@ async function runGrabCycle() {
                     grabStop = true;
                     break;
                 }
-                // 时间冲突不会自己消失，跳过不再重试
+                // 时间冲突 — 根据开关决定跳过还是继续重试
                 if (d.message && d.message.includes('上课时间有冲突')) {
-                    addLog('fail','跳过 [ '+course.kcmc+' ]: '+d.message);
-                    grabSkipped.push(course);
-                    if (reqDelay > 0) await sleep(reqDelay);
-                    continue;
+                    const skip = document.getElementById('f-skip-conflict').checked;
+                    if (skip) {
+                        addLog('fail','跳过 [ '+course.kcmc+' ]: '+d.message);
+                        grabSkipped.push(course);
+                        if (reqDelay > 0) await sleep(reqDelay);
+                        continue;
+                    } else {
+                        addLog('info','第 '+grabAttempt+' 次尝试 ['+course.kcmc+'] (冲突中): '+(d.message||''));
+                        next.push(course);
+                        if (reqDelay > 0) await sleep(reqDelay);
+                        continue;
+                    }
                 }
                 addLog('info','第 '+grabAttempt+' 次尝试 ['+course.kcmc+']: '+(d.message||''));
                 next.push(course);
@@ -507,6 +516,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const savedCycle = localStorage.getItem('grab_cycle_delay');
     if (savedReq !== null) document.getElementById('f-req-delay').value = savedReq;
     if (savedCycle !== null) document.getElementById('f-cycle-delay').value = savedCycle;
+    const savedSkip = localStorage.getItem('grab_skip_conflict');
+    if (savedSkip !== null) document.getElementById('f-skip-conflict').checked = savedSkip === '1';
 
     // Check login
     try {

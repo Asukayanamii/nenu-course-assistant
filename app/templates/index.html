@@ -314,6 +314,10 @@ table tr:hover td { background: #fafbfc; }
                 <label>轮次间隔 (每轮之间, ms)</label>
                 <input id="f-cycle-delay" type="number" min="0" max="30000" step="50" value="300" style="width:120px">
             </div>
+            <div class="form-group" style="flex-direction:row;align-items:center;gap:6px;padding-top:18px">
+                <input type="checkbox" id="f-skip-conflict" style="width:16px;height:16px" checked>
+                <label for="f-skip-conflict" style="font-size:12px;white-space:nowrap">跳过时间冲突</label>
+            </div>
         </div>
         <div class="toolbar">
             <button class="btn btn-success" id="btn-grab-start" onclick="startGrab()">开始抢课</button>
