@@ -108,6 +108,17 @@ table tr:hover td { background: #fafbfc; }
 .detail-inner .item.hasslot { background: #f0fdf4; }
 .detail-inner .item.full { background: #fef2f2; }
 
+/* Toggle switch */
+.toggle-wrap { display:inline-flex; align-items:center; gap:8px; }
+.toggle { position:relative; width:40px; height:22px; flex-shrink:0; }
+.toggle input { opacity:0; width:0; height:0; }
+.toggle .slider { position:absolute; cursor:pointer; inset:0; background:#ccc; border-radius:22px; transition:0.3s; }
+.toggle .slider::before { content:''; position:absolute; left:3px; top:3px; width:16px; height:16px; background:#fff; border-radius:50%; transition:0.3s; }
+.toggle input:checked + .slider { background:#1a3a6b; }
+.toggle input:checked + .slider::before { transform:translateX(18px); }
+.toggle-label { font-size:12px; white-space:nowrap; }
+.toggle-hint { font-size:11px; color:#999; white-space:nowrap; }
+
 @media (max-width: 768px) {
     header { flex-direction: column; text-align: center; }
     .form-row { flex-direction: column; }
@@ -314,9 +325,13 @@ table tr:hover td { background: #fafbfc; }
                 <label>轮次间隔 (每轮之间, ms)</label>
                 <input id="f-cycle-delay" type="number" min="0" max="30000" step="50" value="300" style="width:120px">
             </div>
-            <div class="form-group" style="flex-direction:row;align-items:center;gap:6px;padding-top:18px">
-                <input type="checkbox" id="f-skip-conflict" style="width:16px;height:16px" checked>
-                <label for="f-skip-conflict" style="font-size:12px;white-space:nowrap">跳过时间冲突</label>
+            <div class="toggle-wrap" style="padding-top:18px">
+                <label class="toggle">
+                    <input type="checkbox" id="f-skip-conflict" checked>
+                    <span class="slider"></span>
+                </label>
+                <span class="toggle-label">跳过时间冲突</span>
+                <span class="toggle-hint">蹲正选时建议关闭</span>
             </div>
         </div>
         <div class="toolbar">
