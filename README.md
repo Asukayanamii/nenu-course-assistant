@@ -41,21 +41,13 @@ python main.py
 
 ### 3. 获取 Cookie
 
-#### 方法一：Application 面板（通用）
+打开 [选课系统](https://bkjx.nenu.edu.cn/xsxk.html?xklxdm=08) 并登录成功后：
 
-1. 浏览器打开 [选课系统](https://bkjx.nenu.edu.cn/xsxk.html?xklxdm=08) 并登录
-2. F12 → Application (应用) → Cookies → bkjx.nenu.edu.cn
-3. 右键全选 Cookie 并复制 (Name=Value 格式)
-4. 粘贴到本系统页面，点击验证保存
-
-#### 方法二：Edge 网络面板（从 config 请求头复制）
-
-1. 打开 [选课系统](https://bkjx.nenu.edu.cn/xsxk.html?xklxdm=08) 并登录成功
-2. F12 → 切换到 Network（网络）标签
-3. 按 Ctrl+R 刷新页面，在请求列表中找到 `config` 这个请求
-4. 点击 `config` → 右侧点 Headers（请求头）
-5. 往下翻找到 Request Headers 里的 `Cookie:` 一行
-6. 在 `Cookie:` 行上右键 → Copy value → 粘贴到本系统
+1. F12 → 切换到 Network（网络）标签
+2. 按 Ctrl+R 刷新页面，在请求列表中找到 `config` 这个请求
+3. 点击 `config` → 右侧点 Headers（请求头）
+4. 往下翻找到 Request Headers 里的 `Cookie:` 一行
+5. 在 `Cookie:` 行上右键 → Copy value → 粘贴到本系统
 
 ### 4. 使用
 

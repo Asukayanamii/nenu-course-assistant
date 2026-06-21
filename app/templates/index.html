@@ -151,16 +151,7 @@ table tr:hover td { background: #fafbfc; }
     <div class="card">
         <h3>登录 Cookie 设置</h3>
         <div style="margin-bottom:12px;line-height:1.8">
-            <p class="text-muted"><strong>方法一（推荐）：从 Application 面板复制</strong></p>
-            <p class="text-muted" style="padding-left:16px">
-                1. 打开 <a href="https://bkjx.nenu.edu.cn/xsxk.html?xklxdm=08" target="_blank">选课系统</a> 并登录成功<br>
-                2. F12 → 顶部切换到 <strong>Application（应用）</strong> 标签<br>
-                3. 左侧展开 <strong>Cookies</strong> → 点击 <strong>bkjx.nenu.edu.cn</strong><br>
-                4. 任意一个 Cookie 行上右键 → <strong>Select All</strong> → 再右键 → <strong>Copy</strong>（复制的是 Name=Value 格式）<br>
-                5. 全部粘贴到下方输入框
-            </p>
-            <p class="text-muted" style="margin-top:8px"><strong>方法二（Edge 网络面板）：从 config 请求头复制</strong></p>
-            <p class="text-muted" style="padding-left:16px">
+            <p class="text-muted" style="line-height:1.8">
                 1. 打开 <a href="https://bkjx.nenu.edu.cn/xsxk.html?xklxdm=08" target="_blank">选课系统</a> 并登录成功<br>
                 2. F12 → 切换到 <strong>Network（网络）</strong> 标签<br>
                 3. 按 <strong>Ctrl+R</strong> 刷新页面，在请求列表中找到 <code>config</code> 这个请求<br>
@@ -172,7 +163,7 @@ table tr:hover td { background: #fafbfc; }
                 ※ <code>document.cookie</code> 输出为空是正常的——系统使用了 HttpOnly Cookie，JS 读不到，但 HTTP 请求会自动携带
             </p>
         </div>
-        <textarea id="cookie-inp" placeholder="从 Application → Cookies 全选复制后粘贴到这里..."></textarea>
+        <textarea id="cookie-inp" placeholder="从 Network → config → Cookie 请求头复制后粘贴到这里..."></textarea>
         <div class="toolbar" style="margin-top:8px">
             <button class="btn btn-primary" onclick="setCookie()">验证并保存</button>
             <button class="btn btn-outline" onclick="navigator.clipboard?.readText().then(t=>{document.getElementById('cookie-inp').value=t;showMsg('cookie-result','已从剪贴板粘贴','info')}).catch(()=>showMsg('cookie-result','粘贴失败，请手动粘贴','err'))">从剪贴板粘贴</button>
