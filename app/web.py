@@ -159,15 +159,27 @@ def get_available():
     kcptdm = data.get('kcptdm', '')
     xklxdm = data.get('xklxdm') or storage.get_xklxdm()
     extra = {}
-    for key in ['xqdm', 'hasme', 'page', 'rows']:
+    for key in ['xqdm', 'hasme']:
         val = data.get(key)
         if val is not None:
             extra[key] = val
 
-    result = client.query_kxkc(kcptdm=kcptdm, extra_params=extra, xklxdm=xklxdm)
-    for row in result.get('rows', []):
-        row['_xklxdm'] = xklxdm
-    return jsonify(result)
+    all_rows = []
+    page = 1
+    PAGE_ROWS = 50
+    while True:
+        result = client.query_kxkc(kcptdm=kcptdm, page=page, rows=PAGE_ROWS, extra_params=extra, xklxdm=xklxdm)
+        rows = result.get('rows', [])
+        if not rows:
+            break
+        for row in rows:
+            row['_xklxdm'] = xklxdm
+            all_rows.append(row)
+        if len(rows) < PAGE_ROWS:
+            break
+        page += 1
+
+    return jsonify({'code': result.get('code', 0), 'rows': all_rows, 'total': len(all_rows)})
 
 
 @api.route('/api/courses/selected')
