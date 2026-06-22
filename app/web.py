@@ -187,7 +187,30 @@ def get_selected():
     client = _make_client()
     if not client:
         return jsonify({'code': -1, 'message': '未登录', 'rows': []})
-    return jsonify(client.query_yxkc())
+
+    all_rows = []
+    seen = set()
+    PAGE_ROWS = 50
+    for xklxdm in ['02', '06', '07', '08']:
+        page = 1
+        while True:
+            result = client.query_yxkc(page=page, rows=PAGE_ROWS, xklxdm=xklxdm)
+            rows = result.get('rows', [])
+            if not rows:
+                break
+            for row in rows:
+                kcrwdm = row.get('kcrwdm', '')
+                if kcrwdm and kcrwdm in seen:
+                    continue
+                if kcrwdm:
+                    seen.add(kcrwdm)
+                row['_xklxdm'] = xklxdm
+                all_rows.append(row)
+            if len(rows) < PAGE_ROWS:
+                break
+            page += 1
+
+    return jsonify({'code': 0, 'rows': all_rows, 'total': len(all_rows)})
 
 
 # ==================== 选课 / 退选 ====================
