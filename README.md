@@ -2,7 +2,7 @@
 
 东北师范大学选课辅助系统，提供图形化界面查询课程、管理抢课列表并自动轮询选课。
 
-## 视频教学
+## 使用教程视频
 
 ### [bilibili视频](https://www.bilibili.com/video/BV1Lhj86HEev/?spm_id_from=333.1387.homepage.video_card.click&vd_source=bc46ea6d4b2557698ef9175b7bebf7fd)
 
