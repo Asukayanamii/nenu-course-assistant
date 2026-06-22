@@ -383,6 +383,7 @@ async function runGrabCycle() {
                     }
                 } else if (d.code === -401) {
                     addLog('fail','登录过期，停止抢课');
+                    setLoginStatus(false);
                     grabStop = true;
                     break;
                 }
@@ -435,8 +436,10 @@ function pollGrabStatus() {
     let h = '';
     grabCourses.forEach(c => {
         const done = grabSucceeded.some(s => s.kcrwdm === c.kcrwdm);
+        const skipped = grabSkipped.some(s => s.kcrwdm === c.kcrwdm);
         const trying = grabQueue.some(q => q.kcrwdm === c.kcrwdm);
         const status = done ? '<span class="text-green">已选上</span>'
+                     : skipped ? '<span class="text-orange">已跳过(冲突)</span>'
                      : (!grabRunning && !trying) ? '<span class="text-red">未成功</span>'
                      : '<span class="text-muted">尝试 #'+grabAttempt+'</span>';
         h += '<div class="progress-item"><span class="name">'+esc(c.kcmc)+'</span><span>'+status+'</span></div>';
