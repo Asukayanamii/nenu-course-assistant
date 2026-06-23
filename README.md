@@ -63,7 +63,10 @@ nenu-course-assistant/
 │   ├── storage.py       # JSON 持久化存储
 │   ├── web.py           # Flask 路由
 │   ├── static/
-│   │   └── app.js       # 前端逻辑
+│   │   ├── state.js     # 前端状态与工具函数
+│   │   ├── api.js       # API 调用层
+│   │   ├── grab-core.js # 抢课核心逻辑
+│   │   └── ui.js        # UI 渲染与交互
 │   └── templates/
 │       └── index.html   # 单页前端 (HTML + CSS)
 └── data/
