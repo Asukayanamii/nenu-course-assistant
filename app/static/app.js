@@ -405,46 +405,51 @@ async function runGrabCycle() {
                 if (d.message && d.message.includes('上课时间有冲突')) {
                     const skip = document.getElementById('f-skip-conflict').checked;
                     if (skip && course.autoReplace) {
-                        // 自动替换：退掉已选课再选这门
-                        addLog('info','尝试自动替换 ['+course.kcmc+']: 查询已选课程...');
-                        let replaced = false;
-                        try {
-                            const selR = await fetch('/api/courses/selected');
-                            const selD = await selR.json();
-                            const enrolled = selD.rows || [];
-                            for (const ec of enrolled) {
-                                if (grabStop) break;
-                                if (ec.kcrwdm === course.kcrwdm) continue;
-                                addLog('info','尝试退 ['+ec.kcmc+'] 后选 ['+course.kcmc+']');
-                                await fetch('/api/courses/cancel', {
-                                    method:'POST', headers:{'Content-Type':'application/json'},
-                                    body:JSON.stringify({kcrwdm:ec.kcrwdm,kcmc:ec.kcmc,xklxdm:ec._xklxdm||course.xklxdm||''})
-                                });
-                                const addBody = {kcrwdm:course.kcrwdm,kcmc:course.kcmc};
-                                if (course.xklxdm) addBody.xklxdm = course.xklxdm;
-                                const aR = await fetch('/api/courses/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(addBody)});
-                                const aD = await aR.json();
-                                if (aD.code >= 0) {
-                                    addLog('ok','替换成功: '+course.kcmc+' (已退 '+ec.kcmc+')');
-                                    grabSucceeded.push(course);
-                                    replaced = true; break;
-                                }
-                                if (aD.code === -2) {
-                                    const aR2 = await fetch('/api/courses/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...addBody,confirm:true})});
-                                    const aD2 = await aR2.json();
-                                    if (aD2.code >= 0) {
-                                        addLog('ok','替换成功(冲突确认): '+course.kcmc+' (已退 '+ec.kcmc+')');
+                        // 自动替换：从错误消息解析冲突课程名，精准退那一门
+                        const conflictMatch = d.message.match(/与 您的《(.+?)》上课时间有冲突/);
+                        if (conflictMatch) {
+                            const conflictName = conflictMatch[1];
+                            addLog('info','检测到冲突课程 ['+conflictName+']，尝试退课替换');
+                            try {
+                                const selR = await fetch('/api/courses/selected');
+                                const selD = await selR.json();
+                                const conflict = (selD.rows || []).find(ec => ec.kcmc === conflictName);
+                                if (conflict) {
+                                    addLog('info','退课 ['+conflictName+'] 后重选 ['+course.kcmc+']');
+                                    await fetch('/api/courses/cancel', {
+                                        method:'POST', headers:{'Content-Type':'application/json'},
+                                        body:JSON.stringify({kcrwdm:conflict.kcrwdm,kcmc:conflict.kcmc,xklxdm:conflict._xklxdm||course.xklxdm||''})
+                                    });
+                                    const addBody = {kcrwdm:course.kcrwdm,kcmc:course.kcmc};
+                                    if (course.xklxdm) addBody.xklxdm = course.xklxdm;
+                                    const aR = await fetch('/api/courses/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(addBody)});
+                                    const aD = await aR.json();
+                                    if (aD.code >= 0) {
+                                        addLog('ok','替换成功: '+course.kcmc+' (已退 '+conflictName+')');
                                         grabSucceeded.push(course);
-                                        replaced = true; break;
+                                        if (reqDelay > 0) await sleep(reqDelay);
+                                        continue;
                                     }
+                                    if (aD.code === -2) {
+                                        const aR2 = await fetch('/api/courses/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...addBody,confirm:true})});
+                                        const aD2 = await aR2.json();
+                                        if (aD2.code >= 0) {
+                                            addLog('ok','替换成功(冲突确认): '+course.kcmc+' (已退 '+conflictName+')');
+                                            grabSucceeded.push(course);
+                                            if (reqDelay > 0) await sleep(reqDelay);
+                                            continue;
+                                        }
+                                    }
+                                    addLog('fail','退 ['+conflictName+'] 后仍未选上 ['+course.kcmc+']');
+                                } else {
+                                    addLog('warn','未在已选课程中找到冲突课程 ['+conflictName+']');
                                 }
-                                addLog('info','退 ['+ec.kcmc+'] 后仍未选上 ['+course.kcmc+']，继续尝试下一门');
-                                if (reqDelay > 0) await sleep(reqDelay);
+                            } catch(e) {
+                                addLog('warn','自动替换异常: '+e.message);
                             }
-                        } catch(e) {
-                            addLog('warn','自动替换异常 ['+course.kcmc+']: '+e.message);
+                        } else {
+                            addLog('warn','无法解析冲突课程名，跳过替换: '+d.message);
                         }
-                        if (replaced) { if (reqDelay > 0) await sleep(reqDelay); continue; }
                         addLog('fail','替换失败，跳过 [ '+course.kcmc+' ]: '+d.message);
                         grabSkipped.push(course);
                         if (reqDelay > 0) await sleep(reqDelay);
