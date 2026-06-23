@@ -188,6 +188,7 @@ async function loadDetail(idx, kcptdm, kcmc, xklxdm) {
                      + ' data-jxbrs="'+(r.jxbrs||0)+'"'
                      + ' data-xqjc="'+esc((r.xqjc||'').substring(0,30))+'"'
                      + ' data-xklxdm="'+(r._xklxdm||xklxdm||'')+'"'
+                     + ' data-kcptdm="'+kcptdm+'"'
                      + '>')
                 + '<strong>'+esc(r.jxbmc||'')+'</strong>'
                 + ' | '+esc(r.teaxms||'')
@@ -195,7 +196,7 @@ async function loadDetail(idx, kcptdm, kcmc, xklxdm) {
                 + (hasSlot ? ' <span class="badge-status badge-success">有名额</span>' : ' <span class="badge-status badge-danger">已满</span>')
                 + ' | <span style="color:#666">'+esc((r.xqjc||'').substring(0,30))+'</span>'
                 + (inList ? ''
-                   : ' <button class="btn btn-sm btn-success" onclick="addToGrab(\''+r.kcrwdm+'\',\''+esc(r.kcmc)+'\',\''+esc(r.jxbmc||'')+'\',\''+esc(r.teaxms||'')+'\',\''+(r.pkrs||0)+'\',\''+(r.jxbrs||0)+'\',\''+esc((r.xqjc||'').substring(0,30))+'\',\''+(r._xklxdm||xklxdm||'')+'\')">加入抢课</button>')
+                   : ' <button class="btn btn-sm btn-success" onclick="addToGrab(\''+r.kcrwdm+'\',\''+esc(r.kcmc)+'\',\''+esc(r.jxbmc||'')+'\',\''+esc(r.teaxms||'')+'\',\''+(r.pkrs||0)+'\',\''+(r.jxbrs||0)+'\',\''+esc((r.xqjc||'').substring(0,30))+'\',\''+(r._xklxdm||xklxdm||'')+'\',\''+kcptdm+'\')">加入抢课</button>')
                 + '</div>';
         });
         inner.innerHTML = h;
@@ -227,9 +228,9 @@ async function saveGrabListToServer() {
 }
 
 // ===== Grab List Mgmt =====
-function addToGrab(kcrwdm, kcmc, jxbmc, teaxms, pkrs, jxbrs, xqjc, xklxdm) {
+function addToGrab(kcrwdm, kcmc, jxbmc, teaxms, pkrs, jxbrs, xqjc, xklxdm, kcptdm) {
     if (grabCourses.some(g => g.kcrwdm === kcrwdm)) return;
-    grabCourses.push({kcrwdm,kcmc,jxbmc,teaxms,pkrs,jxbrs,xqjc,xklxdm:xklxdm||'',autoReplace:false});
+    grabCourses.push({kcrwdm,kcmc,jxbmc,teaxms,pkrs,jxbrs,xqjc,xklxdm:xklxdm||'',autoReplace:false,kcptdm:kcptdm||''});
     renderGrabList();
     saveGrabListToServer();
     showTmpMsg('已加入抢课列表: '+kcmc);
@@ -270,6 +271,7 @@ async function addCheckedToGrab() {
             jxbrs: cb.dataset.jxbrs || 0,
             xqjc: cb.dataset.xqjc || '',
             xklxdm: cb.dataset.xklxdm || '',
+            kcptdm: cb.dataset.kcptdm || '',
             autoReplace: false,
         });
         count++;
@@ -298,6 +300,7 @@ async function addCheckedToGrab() {
                     jxbrs: row.jxbrs || 0,
                     xqjc: (row.xqjc || '').substring(0, 30),
                     xklxdm: row._xklxdm || xklxdm || '',
+                    kcptdm: kcptdm || '',
                     autoReplace: false,
                 });
                 count++;
@@ -401,21 +404,49 @@ async function runGrabCycle() {
                     grabStop = true;
                     break;
                 }
-                // 时间冲突 — 根据开关决定跳过、替换还是继续重试
+                // 时间冲突 — 跳过 > 自动替换(查余量) > 重试
                 if (d.message && d.message.includes('上课时间有冲突')) {
                     const skip = document.getElementById('f-skip-conflict').checked;
-                    if (skip && course.autoReplace) {
-                        // 自动替换：从错误消息解析冲突课程名，精准退那一门
+                    // 优先级1: 跳过冲突（开启跳过时不做替换）
+                    if (skip) {
+                        addLog('fail','跳过 [ '+course.kcmc+' ]: '+d.message);
+                        grabSkipped.push(course);
+                        if (reqDelay > 0) await sleep(reqDelay);
+                        continue;
+                    }
+                    // 优先级2: 自动替换（关闭跳过时，检测有余量才替换）
+                    if (course.autoReplace) {
+                        let hasSlot = false;
+                        if (course.kcptdm) {
+                            try {
+                                const qR = await fetch('/api/courses/query_detail', {
+                                    method:'POST', headers:{'Content-Type':'application/json'},
+                                    body:JSON.stringify({kcptdm:course.kcptdm, xklxdm:course.xklxdm})
+                                });
+                                const qD = await qR.json();
+                                const target = (qD.rows || []).find(r => r.kcrwdm === course.kcrwdm);
+                                if (target) hasSlot = parseInt(target.jxbrs||0) < parseInt(target.pkrs||0);
+                            } catch(e) {
+                                addLog('warn','查询余量失败: '+e.message);
+                            }
+                        }
+                        if (!hasSlot) {
+                            addLog('info','第 '+grabAttempt+' 次尝试 ['+course.kcmc+'] (冲突,无余量): '+(d.message||''));
+                            next.push(course);
+                            if (reqDelay > 0) await sleep(reqDelay);
+                            continue;
+                        }
+                        // 有余量，解析冲突课程名，精准替换
                         const conflictMatch = d.message.match(/与 您的《(.+?)》上课时间有冲突/);
                         if (conflictMatch) {
                             const conflictName = conflictMatch[1];
-                            addLog('info','检测到冲突课程 ['+conflictName+']，尝试退课替换');
+                            addLog('info','检测到冲突 ['+conflictName+'] 且目标课有余量，尝试替换');
+                            let replaced = false;
                             try {
                                 const selR = await fetch('/api/courses/selected');
                                 const selD = await selR.json();
                                 const conflict = (selD.rows || []).find(ec => ec.kcmc === conflictName);
                                 if (conflict) {
-                                    addLog('info','退课 ['+conflictName+'] 后重选 ['+course.kcmc+']');
                                     await fetch('/api/courses/cancel', {
                                         method:'POST', headers:{'Content-Type':'application/json'},
                                         body:JSON.stringify({kcrwdm:conflict.kcrwdm,kcmc:conflict.kcmc,xklxdm:conflict._xklxdm||course.xklxdm||''})
@@ -424,47 +455,36 @@ async function runGrabCycle() {
                                     if (course.xklxdm) addBody.xklxdm = course.xklxdm;
                                     const aR = await fetch('/api/courses/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(addBody)});
                                     const aD = await aR.json();
-                                    if (aD.code >= 0) {
+                                    if (aD.code >= 0 || (aD.code === -2 && (await (async()=>{
+                                        const aR2 = await fetch('/api/courses/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...addBody,confirm:true})});
+                                        return (await aR2.json()).code >= 0;
+                                    })()))) {
                                         addLog('ok','替换成功: '+course.kcmc+' (已退 '+conflictName+')');
                                         grabSucceeded.push(course);
-                                        if (reqDelay > 0) await sleep(reqDelay);
-                                        continue;
+                                        replaced = true;
                                     }
-                                    if (aD.code === -2) {
-                                        const aR2 = await fetch('/api/courses/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...addBody,confirm:true})});
-                                        const aD2 = await aR2.json();
-                                        if (aD2.code >= 0) {
-                                            addLog('ok','替换成功(冲突确认): '+course.kcmc+' (已退 '+conflictName+')');
-                                            grabSucceeded.push(course);
-                                            if (reqDelay > 0) await sleep(reqDelay);
-                                            continue;
-                                        }
-                                    }
-                                    addLog('fail','退 ['+conflictName+'] 后仍未选上 ['+course.kcmc+']');
                                 } else {
-                                    addLog('warn','未在已选课程中找到冲突课程 ['+conflictName+']');
+                                    addLog('warn','未找到冲突课程 ['+conflictName+']');
                                 }
                             } catch(e) {
                                 addLog('warn','自动替换异常: '+e.message);
                             }
-                        } else {
-                            addLog('warn','无法解析冲突课程名，跳过替换: '+d.message);
+                            if (replaced) { if (reqDelay > 0) await sleep(reqDelay); continue; }
+                            addLog('fail','替换失败，继续重试 ['+course.kcmc+']');
+                            next.push(course);
+                            if (reqDelay > 0) await sleep(reqDelay);
+                            continue;
                         }
-                        addLog('fail','替换失败，跳过 [ '+course.kcmc+' ]: '+d.message);
-                        grabSkipped.push(course);
-                        if (reqDelay > 0) await sleep(reqDelay);
-                        continue;
-                    } else if (skip) {
-                        addLog('fail','跳过 [ '+course.kcmc+' ]: '+d.message);
-                        grabSkipped.push(course);
-                        if (reqDelay > 0) await sleep(reqDelay);
-                        continue;
-                    } else {
-                        addLog('info','第 '+grabAttempt+' 次尝试 ['+course.kcmc+'] (冲突中): '+(d.message||''));
+                        addLog('warn','无法解析冲突课程名，继续重试 ['+course.kcmc+']');
                         next.push(course);
                         if (reqDelay > 0) await sleep(reqDelay);
                         continue;
                     }
+                    // 优先级3: 普通重试
+                    addLog('info','第 '+grabAttempt+' 次尝试 ['+course.kcmc+'] (冲突中): '+(d.message||''));
+                    next.push(course);
+                    if (reqDelay > 0) await sleep(reqDelay);
+                    continue;
                 }
                 addLog('info','第 '+grabAttempt+' 次尝试 ['+course.kcmc+']: '+(d.message||''));
                 next.push(course);

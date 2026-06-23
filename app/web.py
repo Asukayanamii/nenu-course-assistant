@@ -279,6 +279,7 @@ def save_grab_list():
             'jxbrs': item.get('jxbrs', 0),
             'xqjc': item.get('xqjc', ''),
             'xklxdm': item.get('xklxdm', ''),
+            'kcptdm': item.get('kcptdm', ''),
             'autoReplace': item.get('autoReplace', False),
         })
     storage.save_grab_list(cleaned)

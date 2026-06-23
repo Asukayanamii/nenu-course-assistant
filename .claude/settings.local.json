@@ -51,7 +51,8 @@
       "Bash(taskkill.exe -f -pid 29616)",
       "Bash(taskkill.exe -f -im python.exe)",
       "Bash(pyinstaller *)",
-      "Bash(findstr \":5000.*LISTEN\")"
+      "Bash(findstr \":5000.*LISTEN\")",
+      "Bash(taskkill /f /im \"NENU抢课系统.exe\")"
     ]
   }
 }
