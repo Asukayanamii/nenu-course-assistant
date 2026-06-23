@@ -279,6 +279,7 @@ def save_grab_list():
             'jxbrs': item.get('jxbrs', 0),
             'xqjc': item.get('xqjc', ''),
             'xklxdm': item.get('xklxdm', ''),
+            'autoReplace': item.get('autoReplace', False),
         })
     storage.save_grab_list(cleaned)
     return jsonify({'code': 0, 'message': f'已保存 {len(cleaned)} 门课程'})

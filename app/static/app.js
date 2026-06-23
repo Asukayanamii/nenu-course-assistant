@@ -229,7 +229,7 @@ async function saveGrabListToServer() {
 // ===== Grab List Mgmt =====
 function addToGrab(kcrwdm, kcmc, jxbmc, teaxms, pkrs, jxbrs, xqjc, xklxdm) {
     if (grabCourses.some(g => g.kcrwdm === kcrwdm)) return;
-    grabCourses.push({kcrwdm,kcmc,jxbmc,teaxms,pkrs,jxbrs,xqjc,xklxdm:xklxdm||''});
+    grabCourses.push({kcrwdm,kcmc,jxbmc,teaxms,pkrs,jxbrs,xqjc,xklxdm:xklxdm||'',autoReplace:false});
     renderGrabList();
     saveGrabListToServer();
     showTmpMsg('已加入抢课列表: '+kcmc);
@@ -239,6 +239,14 @@ function removeGrab(kcrwdm) {
     grabCourses = grabCourses.filter(g => g.kcrwdm !== kcrwdm);
     renderGrabList();
     saveGrabListToServer();
+}
+
+function toggleAutoReplace(kcrwdm) {
+    const course = grabCourses.find(g => g.kcrwdm === kcrwdm);
+    if (course) {
+        course.autoReplace = !course.autoReplace;
+        saveGrabListToServer();
+    }
 }
 
 async function addCheckedToGrab() {
@@ -262,6 +270,7 @@ async function addCheckedToGrab() {
             jxbrs: cb.dataset.jxbrs || 0,
             xqjc: cb.dataset.xqjc || '',
             xklxdm: cb.dataset.xklxdm || '',
+            autoReplace: false,
         });
         count++;
     });
@@ -289,6 +298,7 @@ async function addCheckedToGrab() {
                     jxbrs: row.jxbrs || 0,
                     xqjc: (row.xqjc || '').substring(0, 30),
                     xklxdm: row._xklxdm || xklxdm || '',
+                    autoReplace: false,
                 });
                 count++;
             });
@@ -309,7 +319,7 @@ function renderGrabList() {
     const tb = document.getElementById('grab-tbody');
     document.getElementById('grab-count').textContent = grabCourses.length+' 门';
     if (!grabCourses.length) {
-        tb.innerHTML = '<tr><td colspan="6" class="text-center text-muted">暂无课程</td></tr>';
+        tb.innerHTML = '<tr><td colspan="7" class="text-center text-muted">暂无课程</td></tr>';
         return;
     }
     let h = '';
@@ -322,6 +332,10 @@ function renderGrabList() {
             + '<td>'+esc(g.teaxms||'')+'</td>'
             + '<td>'+(poolName?'<span class="badge-status badge-info">'+poolName+'</span>':'')+'</td>'
             + '<td>'+(g.pkrs||'?')+'/'+(g.jxbrs||'?')+' '+(hasSlot?'<span class="badge-status badge-success">有名额</span>':'<span class="badge-status badge-danger">已满</span>')+'</td>'
+            + '<td><label class="toggle toggle-sm" onclick="event.stopPropagation()">'
+                + '<input type="checkbox" '+(g.autoReplace?'checked':'')+' onchange="toggleAutoReplace(\''+g.kcrwdm+'\')">'
+                + '<span class="slider"></span>'
+                + '</label></td>'
             + '<td><button class="btn btn-sm btn-danger" onclick="removeGrab(\''+g.kcrwdm+'\')">移除</button></td>'
             + '</tr>';
     });
@@ -387,10 +401,55 @@ async function runGrabCycle() {
                     grabStop = true;
                     break;
                 }
-                // 时间冲突 — 根据开关决定跳过还是继续重试
+                // 时间冲突 — 根据开关决定跳过、替换还是继续重试
                 if (d.message && d.message.includes('上课时间有冲突')) {
                     const skip = document.getElementById('f-skip-conflict').checked;
-                    if (skip) {
+                    if (skip && course.autoReplace) {
+                        // 自动替换：退掉已选课再选这门
+                        addLog('info','尝试自动替换 ['+course.kcmc+']: 查询已选课程...');
+                        let replaced = false;
+                        try {
+                            const selR = await fetch('/api/courses/selected');
+                            const selD = await selR.json();
+                            const enrolled = selD.rows || [];
+                            for (const ec of enrolled) {
+                                if (grabStop) break;
+                                if (ec.kcrwdm === course.kcrwdm) continue;
+                                addLog('info','尝试退 ['+ec.kcmc+'] 后选 ['+course.kcmc+']');
+                                await fetch('/api/courses/cancel', {
+                                    method:'POST', headers:{'Content-Type':'application/json'},
+                                    body:JSON.stringify({kcrwdm:ec.kcrwdm,kcmc:ec.kcmc,xklxdm:ec._xklxdm||course.xklxdm||''})
+                                });
+                                const addBody = {kcrwdm:course.kcrwdm,kcmc:course.kcmc};
+                                if (course.xklxdm) addBody.xklxdm = course.xklxdm;
+                                const aR = await fetch('/api/courses/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(addBody)});
+                                const aD = await aR.json();
+                                if (aD.code >= 0) {
+                                    addLog('ok','替换成功: '+course.kcmc+' (已退 '+ec.kcmc+')');
+                                    grabSucceeded.push(course);
+                                    replaced = true; break;
+                                }
+                                if (aD.code === -2) {
+                                    const aR2 = await fetch('/api/courses/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...addBody,confirm:true})});
+                                    const aD2 = await aR2.json();
+                                    if (aD2.code >= 0) {
+                                        addLog('ok','替换成功(冲突确认): '+course.kcmc+' (已退 '+ec.kcmc+')');
+                                        grabSucceeded.push(course);
+                                        replaced = true; break;
+                                    }
+                                }
+                                addLog('info','退 ['+ec.kcmc+'] 后仍未选上 ['+course.kcmc+']，继续尝试下一门');
+                                if (reqDelay > 0) await sleep(reqDelay);
+                            }
+                        } catch(e) {
+                            addLog('warn','自动替换异常 ['+course.kcmc+']: '+e.message);
+                        }
+                        if (replaced) { if (reqDelay > 0) await sleep(reqDelay); continue; }
+                        addLog('fail','替换失败，跳过 [ '+course.kcmc+' ]: '+d.message);
+                        grabSkipped.push(course);
+                        if (reqDelay > 0) await sleep(reqDelay);
+                        continue;
+                    } else if (skip) {
                         addLog('fail','跳过 [ '+course.kcmc+' ]: '+d.message);
                         grabSkipped.push(course);
                         if (reqDelay > 0) await sleep(reqDelay);
