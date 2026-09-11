@@ -12,10 +12,27 @@ else:
 # 确保能正确 import app 包
 sys.path.insert(0, _BASE)
 
+import threading
+
 from flask import Flask
 from app.web import api
+from app import session_manager, storage
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
+
+
+def _resume_browser():
+    """上次用的是内置浏览器登录，则在后台静默恢复，登录态自动续上"""
+    try:
+        if storage.get_settings().get('session_mode') != session_manager.MODE_BROWSER:
+            return
+        ok, msg = session_manager.start_browser(headless=True)
+        if ok:
+            logging.getLogger(__name__).info('已恢复内置浏览器登录态')
+        else:
+            logging.getLogger(__name__).warning('恢复内置浏览器失败: %s', msg)
+    except Exception as e:
+        logging.getLogger(__name__).warning('恢复内置浏览器异常: %s', e)
 
 
 def create_app():
@@ -24,6 +41,8 @@ def create_app():
     app = Flask(__name__, template_folder=template_dir, static_folder=static_dir, static_url_path='/static')
     app.secret_key = 'nenu-course-grabber-secret'
     app.register_blueprint(api)
+    session_manager.start_heartbeat()
+    threading.Thread(target=_resume_browser, name='browser-resume', daemon=True).start()
     return app
 
 
@@ -39,6 +58,9 @@ def find_free_port(start=5000):
     return None
 
 
+APP_VERSION = 'v2.2.0'
+
+
 if __name__ == '__main__':
     app = create_app()
     port = find_free_port(5000)
@@ -46,13 +68,12 @@ if __name__ == '__main__':
         print("错误: 无法找到可用端口")
         sys.exit(1)
     print("=" * 50)
-    print("NENU 抢课系统")
+    print(f"NENU 抢课系统 {APP_VERSION}")
     print("=" * 50)
     print(f"\n  地址: http://127.0.0.1:{port}")
     print("\n使用说明:")
-    print("  1. 登录 https://bkjx.nenu.edu.cn 并选课成功进入选课页面")
-    print("  2. F12 → Network → 刷新页面 → 找 config 请求")
-    print("  3. 点 config → Headers → Request Headers → Cookie 行右键 Copy value")
-    print("  4. 粘贴 Cookie → 选择课程池查询 → 加入抢课列表 → 启动")
+    print("  推荐：点击网页上的「打开登录窗口」，在弹出的浏览器里登录一次")
+    print("        （勾选「7天免登录」）——之后登录态由该窗口自动维持，无需再复制 Cookie")
+    print("  备选：手动粘贴 Cookie（仅尽力保活，失效后需重新粘贴）")
     print("=" * 50)
     app.run(host='127.0.0.1', port=port, debug=True, use_reloader=False)

@@ -31,26 +31,200 @@ async function setCookie() {
             setLoginStatus(true, d.data);
             loadCombos();
             loadWallet();
+            refreshSessionStatus();
+            resumeGrabIfPaused();
         } else {
+            // 粘贴失败不影响已有会话，不清空登录状态
             showMsg('cookie-result', '失败：' + d.message, 'err');
-            setLoginStatus(false);
         }
     } catch(e) {
         showMsg('cookie-result', '请求失败：' + e.message, 'err');
     }
 }
 
+// ---------- Session Auto-Renew ----------
+
+function fmtClock(ts) {
+    if (!ts) return '';
+    const d = new Date(ts * 1000);
+    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+
+function renderSessionStatus(s) {
+    const box = document.getElementById('session-box');
+    if (!box) return;
+    if (!s || !s.has_cookies) {
+        box.innerHTML = '<span class="text-muted">尚未登录，自动续期未启用</span>';
+        renderBrowserStatus(s);
+        return;
+    }
+    const parts = [];
+    if (s.mode === 'browser') {
+        parts.push('<span class="badge-status badge-success">内置浏览器模式</span>');
+        parts.push('<span class="text-muted">登录态由浏览器自动维持</span>');
+    } else {
+        parts.push('<span class="badge-status badge-info">纯粘贴模式</span>');
+        parts.push('<span class="text-muted">尽力保活，失效后需重新粘贴</span>');
+    }
+    parts.push(s.logged_in
+        ? '<span class="badge-status badge-success">会话正常</span>'
+        : '<span class="badge-status badge-warning">会话已失效</span>');
+    if (s.last_ok_at) {
+        parts.push('<span class="text-muted">最近校验 ' + fmtClock(s.last_ok_at) + '</span>');
+    }
+    let html = parts.join(' ');
+    if (s.last_error) {
+        html += '<div class="text-red" style="font-size:12px;margin-top:6px">' + esc(s.last_error) + '</div>';
+    }
+    box.innerHTML = html;
+    renderBrowserStatus(s);
+}
+
+function renderBrowserStatus(s) {
+    const box = document.getElementById('browser-box');
+    if (!box) return;
+    const b = (s && s.browser) || {};
+    if (!b.available) {
+        box.innerHTML = '<span class="text-red">' + esc(b.reason || '内置浏览器不可用') + '</span>';
+        const btnOpen = document.getElementById('btn-browser-open');
+        if (btnOpen) btnOpen.disabled = true;
+        return;
+    }
+    const btnOpen = document.getElementById('btn-browser-open');
+    if (btnOpen) btnOpen.disabled = false;
+    const parts = [];
+    if (b.running) {
+        parts.push('<span class="badge-status badge-success">浏览器运行中</span>');
+        parts.push('<span class="text-muted">' + esc(b.channel || '') +
+            (b.headless ? ' 后台' : ' 窗口') + '</span>');
+        parts.push(b.logged_in
+            ? '<span class="badge-status badge-success">已登录</span>'
+            : '<span class="badge-status badge-warning">等待登录</span>');
+    } else if (s && s.tgt_present) {
+        parts.push('<span class="badge-status badge-info">已关闭</span>');
+        parts.push('<span class="text-muted">已持有登录票根，续期无需浏览器</span>');
+    } else {
+        parts.push('<span class="text-muted">未启动</span>');
+    }
+    box.innerHTML = parts.join(' ');
+    const btnClose = document.getElementById('btn-browser-close');
+    if (btnClose) btnClose.style.display = b.running ? '' : 'none';
+    const auto = document.getElementById('f-auto-close');
+    if (auto && s) auto.checked = s.auto_close_browser !== false;
+}
+
+async function refreshSessionStatus() {
+    try {
+        const s = await apiSessionStatus();
+        renderSessionStatus(s);
+        syncLoginBadge(s);
+        return s;
+    } catch (e) {
+        return null;
+    }
+}
+
+// 后台会话恢复（例如浏览器里刚登录成功）后，把右上角状态同步过来
+async function syncLoginBadge(s) {
+    if (!s || !s.has_cookies || !s.logged_in || loginState) return;
+    try {
+        const d = await apiCheckLogin();
+        if (!d.logged_in) return;
+        setLoginStatus(true, d.config);
+        loadCombos();
+        loadWallet();
+        resumeGrabIfPaused();
+        showTmpMsg('登录成功，登录态已同步');
+    } catch (e) { /* ignore */ }
+}
+
+async function toggleAutoCloseBrowser(el) {
+    try {
+        const r = await apiBrowserSettings(el.checked);
+        renderSessionStatus(r);
+    } catch (e) {
+        showMsg('cookie-result', '设置失败：' + e.message, 'err');
+    }
+}
+
+async function openBrowserLogin() {
+    const btn = document.getElementById('btn-browser-open');
+    if (btn) btn.disabled = true;
+    showMsg('cookie-result', '正在启动浏览器（首次启动稍慢）...', 'info');
+    try {
+        const r = await apiBrowserOpen();
+        showMsg('cookie-result',
+            r.code === 0 ? '浏览器已打开，请在其中登录（勾选「7天免登录」），登录成功后本页面会自动同步'
+                         : '启动失败：' + (r.message || ''),
+            r.code === 0 ? 'ok' : 'err');
+        renderSessionStatus(r);
+    } catch (e) {
+        showMsg('cookie-result', '启动失败：' + e.message, 'err');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+async function refreshBrowserSession() {
+    showMsg('cookie-result', '正在让浏览器重新建立会话...', 'info');
+    try {
+        const r = await apiBrowserRefresh();
+        showMsg('cookie-result', r.message, r.code === 0 ? 'ok' : 'err');
+        renderSessionStatus(r);
+        if (r.code === 0) {
+            setLoginStatus(true);
+            resumeGrabIfPaused();
+        }
+    } catch (e) {
+        showMsg('cookie-result', '刷新失败：' + e.message, 'err');
+    }
+}
+
+async function closeBrowser() {
+    try {
+        const r = await apiBrowserClose();
+        showMsg('cookie-result', r.message || '已关闭', 'info');
+        renderSessionStatus(r);
+    } catch (e) {
+        showMsg('cookie-result', '关闭失败：' + e.message, 'err');
+    }
+}
+
+async function renewSession() {
+    const btn = document.getElementById('btn-renew');
+    if (btn) btn.disabled = true;
+    showMsg('cookie-result', '正在续期...', 'info');
+    try {
+        const r = await apiRenewSession();
+        renderSessionStatus(r);
+        if (r.code === 0) {
+            showMsg('cookie-result', '续期成功，会话已恢复', 'ok');
+            setLoginStatus(true);
+            resumeGrabIfPaused();
+        } else {
+            showMsg('cookie-result', '续期失败：' + (r.message || ''), 'err');
+        }
+    } catch (e) {
+        showMsg('cookie-result', '续期请求失败：' + e.message, 'err');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
 function setLoginStatus(ok, cfg) {
+    if (cfg) loginConfig = cfg;
+    loginState = !!ok;
+    const data = loginConfig || {};
     const b = document.getElementById('login-badge');
     if (ok) {
         b.className = 'login-status online';
         b.innerHTML = '● 已登录';
         document.getElementById('cfg-card').style.display = 'block';
         const items = [
-            ['学期', cfg?.xkkz?.xnxqmc || cfg?.xnxqmc || '-'],
-            ['类型', cfg?.xklxmc || '-'],
-            ['阶段', cfg?.xkjd !== undefined ? (['','一选','二选','退选','补选'][cfg.xkjd] || cfg.xkjd) : '-'],
-            ['可退选', cfg?.xkkz?.iscancel ? '是' : '否'],
+            ['学期', data?.xkkz?.xnxqmc || data?.xnxqmc || '-'],
+            ['类型', data?.xklxmc || '-'],
+            ['阶段', data?.xkjd !== undefined ? (['','一选','二选','退选','补选'][data.xkjd] || data.xkjd) : '-'],
+            ['可退选', data?.xkkz?.iscancel ? '是' : '否'],
         ];
         document.getElementById('cfg-grid').innerHTML = items.map(([l, v]) =>
             '<div class="item"><div class="l">' + l + '</div><div class="v">' + v + '</div></div>'
@@ -280,5 +454,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             loadCombos();
             loadWallet();
         }
+        renderSessionStatus(d.session);
     } catch(e) { /* ignore */ }
+
+    // 定时同步会话与浏览器状态（本地接口，开销很小）
+    setInterval(refreshSessionStatus, 5000);
 });

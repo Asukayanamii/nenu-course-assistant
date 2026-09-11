@@ -8,7 +8,8 @@
 
 ## 功能
 
-- **Cookie 登录** — 粘贴教务处 Cookie 即可登录，无需账号密码
+- **内置浏览器登录（推荐）** — 点击按钮弹出专用浏览器窗口，登录一次后由它自动维持登录态，**无需复制任何 Cookie**，掉线自动换新
+- **手动粘贴登录（备选）** — 不便使用登录窗口时可粘贴 Cookie，程序会尽力保活
 - **多课程池查询** — 同时查询本部公共/专业、净月公共/专业 4 个课程池，支持多选合并、自动去重
 - **多维筛选** — 按开课单位、课程大类、年级、专业、星期、节次范围、关键词、仅看有余量等条件过滤
 - **课程详情** — 查看每门课程的所有教学班及实时名额，全量分页加载
@@ -18,7 +19,7 @@
 - **可调频率** — 自定义选课间隔（同轮内每门课之间）和轮次间隔
 - **已选课程** — 跨所有课程池查看已选课程，支持退选
 - **端口自动切换** — 启动时若 5000 被占用自动递增查找可用端口
-- **持久化存储** — Cookie、抢课列表、频率设置本地保存，重启不丢失
+- **持久化存储** — 登录态、抢课列表、频率设置本地保存，重启不丢失
 
 ## 快速开始
 
@@ -28,6 +29,17 @@
 pip install -r requirements.txt
 ```
 
+核心依赖只有 Flask 与 requests。**内置浏览器登录**另需 Playwright（可选，但推荐）：
+
+```bash
+pip install "playwright>=1.40,<2.0"
+```
+
+> ⚠️ Playwright 必须使用 **python.org 版 Python**（平台标签 `win-amd64`）。
+> MSYS2 / MinGW 版 Python 的平台标签是 `mingw_x86_64_ucrt_gnu`，PyPI 上没有对应 wheel，
+> pip 会报 `from versions: none`。这类环境请改用 python.org 版 Python，或直接使用打包好的 exe。
+> 未安装 Playwright 时程序照常运行，自动降级为手动粘贴模式。
+
 ### 启动
 
 ```bash
@@ -36,55 +48,127 @@ python main.py
 
 启动后访问终端提示的地址（默认 http://127.0.0.1:5000，端口被占用会自动切换）
 
-### 获取 Cookie
+### 登录（推荐：内置浏览器）
 
-1. 浏览器打开 [选课系统](https://bkjx.nenu.edu.cn/xsxk.html?xklxdm=08) 并登录成功
-2. F12 → Network（网络）标签
-3. 按 Ctrl+R 刷新页面，在请求列表中找到 `config` 请求
-4. 点击 `config` → Headers（请求头）
-5. 找到 Request Headers 里的 `Cookie:` 行，右键 → Copy value
-6. 粘贴到本系统 Cookie 设置页，点击验证
+1. 打开首页的「**打开登录窗口**」按钮
+2. 在弹出的浏览器窗口里登录学校账号，**勾选「7天免登录」**
+3. 登录成功后回到本系统页面 —— 状态栏会显示「内置浏览器模式 / 会话正常」，
+   右上角徽标会同步变为「已登录」
+
+此后**不需要再复制任何 Cookie**。默认开启「登录成功后自动关闭浏览器」：
+一旦取到长期票根，浏览器窗口会自动关闭以节省资源，之后由票根在请求层完成续期，
+并一直沿用——即使重启程序也会在后台静默恢复。该开关可随时关闭。
+
+> 为什么不全程开着浏览器：拿到票根后，请求层就能独立完成续期，浏览器常驻没有必要。
+> 若未取到票根，程序**不会**关闭浏览器，以免丧失续期能力。
+
+> 浏览器使用独立配置目录（`data/browser-profile/`），
+> 与你日常使用的浏览器数据完全隔离，不会读写你的收藏、历史或密码。
+
+### 登录（备选：手动粘贴 Cookie）
+
+<details>
+<summary>展开手动粘贴步骤</summary>
+
+1. 打开 [选课系统首页](https://bkjx.nenu.edu.cn/) 并登录
+   —— 未登录时会自动跳转到统一身份认证，登录后自动跳回
+2. 登录后打开 [选课页面](https://bkjx.nenu.edu.cn/xsxk.html?xklxdm=08)
+   —— **这一步才会建立选课系统的会话**，需要停留在此页面
+3. 在该页面按 F12 → 切到 **Network（网络）** 标签 → `Ctrl+R` 刷新
+4. 在请求列表中找到 `config` 请求 → 右侧 **Headers（请求头）**
+5. 找到 **Request Headers** 里的 `Cookie:` 一行 → 右键 **Copy value**
+6. 粘贴到「手动粘贴 Cookie」区域 → 点击验证并保存
+
+> ⚠️ 第 2 步不能跳过：只登录首页拿到的是认证中心的 Cookie，**不含选课系统的会话**，
+> 粘贴后会提示未登录。必须从选课页面（`xsxk.html`）复制。
+
+> ⚠️ 此模式不含长期票根（`CASTGC`），**只能尽力保活**（后台定时心跳），
+> 会话失效后需要重新粘贴一次。想长期免维护请使用内置浏览器登录。
+
+</details>
 
 ### 使用
 
-- **Cookie 设置页** — 粘贴并验证 Cookie，查看选课配置与学分信息
+- **登录页** — 登录、查看会话与浏览器状态、查看选课配置与学分信息
 - **课程查询页** — 勾选课程池 → 设置筛选条件 → 查询。点击课程行展开查看教学班，勾选或一键加入抢课列表
 - **自动抢课页** — 管理抢课列表，启动自动轮询。可调选课间隔和轮次间隔。全局"跳过时间冲突"开关配合每门课独立"自动替换"开关灵活控制冲突处理策略
 - **已选课程页** — 查看已选课程，支持退选
+
+## 登录态维持原理
+
+学校为金智（Wisedu）CAS 单点登录，业务会话（`JSESSIONID`）数小时即失效。
+长期凭据是 CAS 票根 `CASTGC`，但它是 **HttpOnly Cookie、由服务器下发且随登录轮换**，
+脚本无法自行获取——这正是「手动复制 Cookie」不可靠的原因。
+
+内置浏览器方案让真实浏览器完成一次登录，从而拿到该票根；程序随后接管会话：
+
+```
+浏览器（持有 CASTGC + 浏览器指纹）
+   -> 换出 service ticket
+      -> 回跳 /new/ssoLogin?ticket=...
+         -> 选课系统下发新的 JSESSIONID
+            -> 主程序接管该会话并落盘
+```
+
+全程不需要账号密码，也不会触发验证码或多因子认证（浏览器指纹 Cookie 让风控放行）。
+
+票根一旦落盘即可**独立完成后续所有续期**，因此浏览器不必常驻——
+这正是「登录后自动关闭浏览器」能安全启用的原因（未取到票根时不会关闭）。
+
+> 📄 完整的设计细节、Cookie 语义对照表、模块职责与排障手册见
+> **[docs/cookie-session-architecture.md](docs/cookie-session-architecture.md)**
 
 ## 项目结构
 
 ```
 nenu-course-assistant/
-├── main.py              # 应用入口
-├── requirements.txt     # 依赖
+├── main.py                # 应用入口
+├── requirements.txt       # 运行依赖
+├── NENU抢课系统.spec       # PyInstaller 打包配置
 ├── app/
-│   ├── client.py        # 教务处 API 客户端
-│   ├── storage.py       # JSON 持久化存储
-│   ├── web.py           # Flask 路由
+│   ├── client.py          # 教务处 API 客户端（含会话失效检测与票根续期）
+│   ├── browser_session.py # 内置浏览器会话（持有并刷新登录态）
+│   ├── session_manager.py # 共享会话、保活心跳、Cookie 自动落盘、模式切换
+│   ├── storage.py         # JSON 持久化存储（多域 Cookie）
+│   ├── web.py             # Flask 路由
 │   ├── static/
-│   │   ├── state.js     # 前端状态与工具函数
-│   │   ├── api.js       # API 调用层
-│   │   ├── grab-core.js # 抢课核心逻辑
-│   │   └── ui.js        # UI 渲染与交互
+│   │   ├── state.js       # 前端状态与工具函数
+│   │   ├── api.js         # API 调用层
+│   │   ├── grab-core.js   # 抢课核心逻辑
+│   │   └── ui.js          # UI 渲染与交互
 │   └── templates/
-│       └── index.html   # 单页前端 (HTML + CSS)
+│       └── index.html     # 单页前端 (HTML + CSS)
+├── tools/
+│   └── diag_login.py      # Cookie / 续期链路诊断脚本（开发排障用）
+├── docs/
+│   └── cookie-session-architecture.md  # Cookie 与会话架构文档（设计细节与排障）
 └── data/
-    └── storage.json     # 本地持久化数据（含 Cookie，已 gitignore）
+    ├── storage.json         # 本地持久化数据（含 Cookie，已 gitignore）
+    ├── storage.template.json # 存储模板（首次运行时的默认结构）
+    └── browser-profile/     # 内置浏览器配置目录（含登录态，已 gitignore）
 ```
 
 ## 打包 exe
 
+打包配置已写入 `NENU抢课系统.spec`（含前端资源与 Playwright driver）：
+
 ```bash
 pip install pyinstaller
-pyinstaller --onefile --add-data "app/templates;app/templates" --add-data "app/static;app/static" --name "NENU抢课系统" main.py
+pyinstaller "NENU抢课系统.spec"
 ```
 
-生成的 exe 位于 `dist/NENU抢课系统.exe`，可直接运行，持久化数据保存在 exe 同目录的 `data/` 文件夹。
+生成的 exe 位于 `dist/`，文件名带版本号。持久化数据保存在 exe 同目录的 `data/` 文件夹。
+
+> **关于体积**：Playwright 的 Node 驱动约 100 MB，zlib 压缩后 exe 约 54 MB。
+> 因为直接调用系统已安装的 Edge / Chrome，**不需要**额外下载浏览器内核。
+> 若把 exe 发给他人，对方机器上需装有 Edge 或 Chrome（Windows 10/11 均自带 Edge）。
 
 ## 注意事项
 
-- Cookie 含登录态，请勿泄露
+- Cookie 与浏览器配置目录均含登录态，请勿泄露或提交到版本库（已在 `.gitignore` 中排除）
 - 需在校园网或 VPN 环境下访问教务处
-- 登录过期后抢课自动停止并提示
+- 学校限制同一账号只能有一个活跃会话：在手机或其他浏览器登录会把本工具的会话顶掉
+- 票根有效期取决于「7天免登录」：勾选后约 7 天，不勾选则只有几小时。
+  票根过期后点击「打开登录窗口」重新登录一次即可
+- 排障：`python tools/diag_login.py` 可打印 Cookie 域名分布、换票链路与续期结果
 - **蹲正选**：预选结束→正选开放前关闭"跳过时间冲突"开关，系统会无视冲突持续尝试，正选一开放即可抢入

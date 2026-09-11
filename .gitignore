@@ -1,6 +1,10 @@
 # 本地持久化存储（含 Cookie，切勿提交！）
 data/storage.json
 
+# 内置浏览器配置目录（含登录态 Cookie，同样切勿提交！）
+data/browser-profile/
+dist/data/
+
 # Python
 __pycache__/
 *.pyc
@@ -12,6 +16,10 @@ venv/
 .idea/
 .vscode/
 *.swp
+
+# AI 助手工具的本地状态（仅本机有效，切勿提交）
+.commandcode/
+.claude/
 
 # OS
 .DS_Store

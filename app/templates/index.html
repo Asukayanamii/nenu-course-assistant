@@ -155,27 +155,67 @@ table tr:hover td { background: #fafbfc; }
 <!-- Page 1: Cookie -->
 <div id="page-login" class="page active">
     <div class="card">
-        <h3>登录 Cookie 设置</h3>
-        <div style="margin-bottom:12px;line-height:1.8">
+        <h3>登录 <span class="badge">推荐</span></h3>
+        <p class="text-muted" style="line-height:1.8;margin-bottom:12px">
+            点击下方按钮打开专用登录窗口，在其中登录一次（<strong>勾选「7天免登录」</strong>）即可。<br>
+            登录态由该窗口自动维持，<strong>之后无需再复制任何 Cookie</strong>；即使掉线也会自动换新。
+        </p>
+        <div class="toolbar">
+            <button class="btn btn-primary" id="btn-browser-open" onclick="openBrowserLogin()">打开登录窗口</button>
+            <button class="btn btn-outline" onclick="refreshBrowserSession()">重新建立会话</button>
+            <button class="btn btn-outline" id="btn-browser-close" style="display:none" onclick="closeBrowser()">关闭浏览器</button>
+            <div class="toggle-wrap" style="margin-left:8px">
+                <label class="toggle toggle-sm">
+                    <input type="checkbox" id="f-auto-close" checked onchange="toggleAutoCloseBrowser(this)">
+                    <span class="slider"></span>
+                </label>
+                <span class="toggle-label">登录成功后自动关闭浏览器</span>
+                <span class="toggle-hint">已取得票根，续期无需浏览器常驻</span>
+            </div>
+        </div>
+        <div class="toolbar" style="margin-top:12px;padding:10px 12px;background:#f8f9fb;border-radius:6px">
+            <span style="font-size:12px;color:#888;font-weight:500">内置浏览器</span>
+            <span id="browser-box" class="text-muted">检查中...</span>
+        </div>
+        <div class="toolbar" style="margin-top:8px;padding:10px 12px;background:#f8f9fb;border-radius:6px">
+            <span style="font-size:12px;color:#888;font-weight:500">当前会话</span>
+            <span id="session-box" class="text-muted">检查中...</span>
+            <div class="spacer"></div>
+            <button class="btn btn-outline btn-sm" id="btn-renew" onclick="renewSession()">立即续期</button>
+        </div>
+        <div id="cookie-result" style="margin-top:8px"></div>
+    </div>
+
+    <div class="card">
+        <h3>手动粘贴 Cookie <span class="badge">备选</span></h3>
+        <p class="text-muted" style="line-height:1.8;margin-bottom:8px">
+            不便使用登录窗口时可手工粘贴。此模式不含长期票根，<strong>只能尽力保活</strong>，
+            会话失效后需要重新粘贴一次（若想长期免维护，请用上面的登录窗口）。
+        </p>
+        <details>
+            <summary style="cursor:pointer;font-size:13px;color:#1a3a6b;margin-bottom:8px">展开获取步骤</summary>
             <p class="text-muted" style="line-height:1.8">
-                1. 打开 <a href="https://bkjx.nenu.edu.cn/xsxk.html?xklxdm=08" target="_blank">选课系统</a> 并登录成功<br>
-                2. F12 → 切换到 <strong>Network（网络）</strong> 标签<br>
-                3. 按 <strong>Ctrl+R</strong> 刷新页面，在请求列表中找到 <code>config</code> 这个请求<br>
-                4. 点击 <code>config</code> → 右侧点 <strong>Headers（请求头）</strong><br>
-                5. 往下翻找到 <strong>Request Headers</strong> 里的 <code>Cookie:</code> 一行<br>
-                6. 在 <code>Cookie:</code> 行上右键 → <strong>Copy value</strong> → 粘贴到下方
+                1. 打开 <a href="https://bkjx.nenu.edu.cn/" target="_blank">选课系统首页</a> 并登录
+                　（未登录会自动跳转到统一身份认证，登录后自动跳回）<br>
+                2. 登录后打开 <a href="https://bkjx.nenu.edu.cn/xsxk.html?xklxdm=08" target="_blank">选课页面</a>
+                　—— <strong>这一步才会建立选课系统的会话</strong>，必须停留在此页面<br>
+                3. 在该页面按 F12 → 切到 <strong>Network（网络）</strong> 标签 → 按 <strong>Ctrl+R</strong> 刷新<br>
+                4. 在请求列表中找到 <code>config</code> 请求 → 右侧 <strong>Headers（请求头）</strong><br>
+                5. 找到 <strong>Request Headers</strong> 里的 <code>Cookie:</code> 一行 → 右键 <strong>Copy value</strong><br>
+                6. 粘贴到下方 → 点击验证
             </p>
-            <p class="text-muted" style="margin-top:8px;color:#dc2626;font-size:12px">
+            <p class="text-muted" style="margin-top:4px;color:#dc2626;font-size:12px">
+                ※ 第 2 步不能跳过：只登录首页拿到的是认证中心的 Cookie，不含选课系统的会话，粘贴后会提示未登录。<br>
                 ※ <code>document.cookie</code> 输出为空是正常的——系统使用了 HttpOnly Cookie，JS 读不到，但 HTTP 请求会自动携带
             </p>
-        </div>
-        <textarea id="cookie-inp" placeholder="从 Network → config → Cookie 请求头复制后粘贴到这里..."></textarea>
+        </details>
+        <textarea id="cookie-inp" placeholder="在选课页面（xsxk.html）按 F12 → Network → config → 复制 Cookie 头粘贴到这里..."></textarea>
         <div class="toolbar" style="margin-top:8px">
             <button class="btn btn-primary" onclick="setCookie()">验证并保存</button>
             <button class="btn btn-outline" onclick="navigator.clipboard?.readText().then(t=>{document.getElementById('cookie-inp').value=t;showMsg('cookie-result','已从剪贴板粘贴','info')}).catch(()=>showMsg('cookie-result','粘贴失败，请手动粘贴','err'))">从剪贴板粘贴</button>
         </div>
-        <div id="cookie-result" style="margin-top:8px"></div>
     </div>
+
     <div class="card" id="cfg-card" style="display:none">
         <h3>选课配置</h3>
         <div class="config-grid" id="cfg-grid"></div>

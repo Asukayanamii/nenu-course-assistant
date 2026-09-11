@@ -1,0 +1,18 @@
+[project]
+name = "nenu-course-assistant"
+version = "2.2.0"
+description = "东北师范大学选课辅助系统：图形化查询课程、自动轮询抢课，支持内置浏览器免密维持登录态"
+readme = "README.md"
+requires-python = ">=3.10"
+
+dependencies = [
+    "Flask>=3.0,<4.0",
+    "requests>=2.31,<3.0",
+    "playwright>=1.40,<2.0",
+]
+
+[project.optional-dependencies]
+# 打包 exe 用（打包配置见仓库根目录的 NENU抢课系统.spec）
+build = [
+    "pyinstaller>=6.0",
+]

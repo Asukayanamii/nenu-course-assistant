@@ -200,7 +200,9 @@ async function runGrabCycle() {
 }
 
 function finishGrab() {
-    if (grabQueue.length === 0 && !grabStop) {
+    if (grabPausedByAuth) {
+        addLog('warn', '登录已失效，抢课暂停 — 会话恢复后将自动继续');
+    } else if (grabQueue.length === 0 && !grabStop) {
         let msg = '全部完成！成功 ' + grabSucceeded.length + '门';
         if (grabSkipped.length) msg += '，因时间冲突跳过 ' + grabSkipped.length + '门';
         addLog('ok', msg);
@@ -210,8 +212,15 @@ function finishGrab() {
     grabRunning = false;
     document.getElementById('btn-grab-start').disabled = false;
     document.getElementById('btn-grab-stop').disabled = true;
-    document.getElementById('grab-state').textContent = '就绪';
+    document.getElementById('grab-state').textContent = grabPausedByAuth ? '已暂停(登录失效)' : '就绪';
     if (grabTimer) { clearInterval(grabTimer); grabTimer = null; }
+}
+
+function resumeGrabIfPaused() {
+    if (!grabPausedByAuth || grabRunning) return;
+    grabPausedByAuth = false;
+    startGrab();
+    addLog('ok', '会话已恢复，自动继续抢课');
 }
 
 async function attemptEnroll(course, reqDelay) {
@@ -237,9 +246,16 @@ async function attemptEnroll(course, reqDelay) {
             }
         }
 
-        // 登录过期
+        // 登录过期 — 后端已先试过自动续期，这里再补一次手动续期
         if (d.code === -401) {
-            addLog('fail', '登录过期，停止抢课');
+            const r = await apiRenewSession();
+            if (r.code === 0) {
+                addLog('ok', '登录已自动续期，继续抢课');
+                setLoginStatus(true);
+                return 'retry';
+            }
+            addLog('fail', '登录失效且自动续期失败：' + (r.message || '请重新粘贴 Cookie'));
+            grabPausedByAuth = true;
             setLoginStatus(false);
             return 'stopped';
         }

@@ -2,6 +2,8 @@
 const POOL_NAMES = {'02':'本部专业','06':'本部公共','07':'净月专业','08':'净月公共'};
 
 // ===== Global State =====
+let loginConfig = null;     // 最近一次选课配置（会话状态刷新时复用，避免展示被清空）
+let loginState = false;     // 界面上的登录状态，用于与后台会话状态同步
 let grabCourses = [];       // {kcrwdm,kcmc,jxbmc,teaxms,pkrs,jxbrs,xqjc,xklxdm,autoReplace,kcptdm}
 let grabRunning = false;
 let grabTimer = null;
@@ -10,6 +12,7 @@ let grabSucceeded = [];
 let grabSkipped = [];       // courses with time conflicts
 let grabAttempt = 0;
 let grabStop = false;
+let grabPausedByAuth = false;   // 因登录失效暂停，会话恢复后自动继续
 
 // ===== Utilities =====
 function esc(s) {

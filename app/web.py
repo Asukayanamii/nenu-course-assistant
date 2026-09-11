@@ -4,16 +4,14 @@ from flask import Blueprint, render_template, request, jsonify
 
 from .client import CourseClient, BASE_URL
 from . import storage
+from . import session_manager
 
 api = Blueprint('api', __name__)
 
 
-def _make_client(xklxdm=None):
-    """从持久化存储中加载 cookies 创建客户端"""
-    cookies = storage.get_cookies()
-    if not cookies:
-        return None
-    return CourseClient(cookies, xklxdm=xklxdm or storage.get_xklxdm())
+def _make_client():
+    """获取共享会话客户端（Cookie 与自动续期状态全局一致）"""
+    return session_manager.get_client()
 
 
 # ==================== 页面 ====================
@@ -24,6 +22,17 @@ def index():
 
 
 # ==================== Cookie ====================
+
+def _diagnose_failure(cookie_dict, result):
+    """验证失败时给出可执行的排查提示"""
+    msg = result.get('message') or '验证失败'
+    if any(name in cookie_dict for name in storage.AUTH_SIDE_MARKERS):
+        return (f'{msg}（这批 Cookie 来自统一身份认证，不含选课系统的会话：'
+                f'请先在 bkjx.nenu.edu.cn 登录，再打开选课页面 xsxk.html?xklxdm=08 '
+                f'复制该页面的 Cookie，或使用内置浏览器登录）')
+    return (f'{msg}（Cookie 可能已过期：请打开选课页面 xsxk.html?xklxdm=08 '
+            f'重新复制，或使用内置浏览器登录）')
+
 
 @api.route('/api/cookies/set', methods=['POST'])
 def set_cookies():
@@ -38,7 +47,9 @@ def set_cookies():
         item = item.strip()
         if '=' in item:
             k, v = item.split('=', 1)
-            cookie_dict[k] = v
+            k, v = k.strip(), v.strip()
+            if k:
+                cookie_dict[k] = v
 
     if not cookie_dict:
         return jsonify({'code': -1, 'message': '未解析到有效的 Cookie'})
@@ -46,33 +57,100 @@ def set_cookies():
     # 获取选课类型代码
     xklxdm = data.get('xklxdm', '') or storage.get_xklxdm() or '08'
 
-    # 验证
-    client = CourseClient(cookie_dict, xklxdm=xklxdm)
+    client = CourseClient(cookies_dict=cookie_dict, xklxdm=xklxdm)
     result = client.load_config()
 
     if result.get('code', -1) >= 0:
-        storage.save_cookies(cookie_dict)
+        storage.save_cookie_jar(client.export_cookie_jar())
         storage.save_config(result.get('data', {}))
         storage.save_xklxdm(xklxdm)
-        return jsonify({'code': 0, 'message': '验证通过', 'data': result['data']})
+        session_manager.adopt(client, mode=session_manager.MODE_MANUAL)
+        tgt = client.has_ticket()
+        msg = ('验证通过（已开启自动续期）' if tgt
+               else '验证通过（纯粘贴模式：将尽力保活，失效后需重新粘贴）')
+        return jsonify({'code': 0, 'message': msg, 'data': result['data'], 'tgt_present': tgt})
     else:
-        return jsonify({'code': -1, 'message': result.get('message', '验证失败')})
+        return jsonify({'code': -1, 'message': _diagnose_failure(cookie_dict, result)})
 
 
 @api.route('/api/cookies/check')
 def check_login():
     client = _make_client()
     if not client:
-        return jsonify({'code': -1, 'logged_in': False, 'message': '未登录'})
+        return jsonify({'code': -1, 'logged_in': False, 'message': '未登录',
+                        'session': session_manager.status()})
     ok = client.check_login()
     cfg = storage.get_config()
-    return jsonify({'code': 0 if ok else -1, 'logged_in': ok, 'config': cfg})
+    if ok:
+        session_manager.persist()
+    else:
+        session_manager.note_failure(client)
+    return jsonify({'code': 0 if ok else -1, 'logged_in': ok, 'config': cfg,
+                    'session': session_manager.status()})
 
 
 @api.route('/api/cookies/clear', methods=['POST'])
 def clear_cookies():
-    storage.save_cookies({})
+    storage.save_cookie_jar([])
+    storage.save_config({})
+    session_manager.invalidate()
     return jsonify({'code': 0, 'message': '已清除'})
+
+
+# ==================== 会话自动续期 ====================
+
+@api.route('/api/session/status')
+def session_status():
+    return jsonify({'code': 0, **session_manager.status()})
+
+
+@api.route('/api/session/renew', methods=['POST'])
+def session_renew():
+    ok = session_manager.renew()
+    st = session_manager.status()
+    return jsonify({'code': 0 if ok else -1,
+                    'message': '续期成功' if ok else (st.get('last_error') or '续期失败'),
+                    **st})
+
+
+# ==================== 内置浏览器 ====================
+
+@api.route('/api/browser/status')
+def browser_status():
+    return jsonify({'code': 0, **session_manager.status()})
+
+
+@api.route('/api/browser/open', methods=['POST'])
+def browser_open():
+    """打开可见的登录窗口（首次需在此登录，之后由浏览器自动维持登录态）"""
+    ok, msg = session_manager.open_browser_login()
+    return jsonify({'code': 0 if ok else -1,
+                    'message': msg or ('已打开登录窗口，请完成登录' if ok else '打开失败'),
+                    **session_manager.status()})
+
+
+@api.route('/api/browser/close', methods=['POST'])
+def browser_close():
+    session_manager.close_browser()
+    return jsonify({'code': 0, 'message': '已关闭内置浏览器', **session_manager.status()})
+
+
+@api.route('/api/browser/refresh', methods=['POST'])
+def browser_refresh():
+    """让浏览器重新走一遍免密登录，换出新会话"""
+    ok, msg = session_manager.browser_refresh()
+    return jsonify({'code': 0 if ok else -1, 'message': msg, **session_manager.status()})
+
+
+@api.route('/api/browser/settings', methods=['POST'])
+def browser_settings():
+    """登录成功后是否自动关闭浏览器窗口（省资源）"""
+    data = request.json or {}
+    if 'auto_close_browser' in data:
+        settings = storage.get_settings()
+        settings['auto_close_browser'] = bool(data['auto_close_browser'])
+        storage.save_settings(settings)
+    return jsonify({'code': 0, **session_manager.status()})
 
 
 # ==================== 配置与下拉 ====================
@@ -219,7 +297,7 @@ def get_selected():
 def add_course():
     data = request.json or {}
     xklxdm = data.get('xklxdm') or storage.get_xklxdm()
-    client = _make_client(xklxdm=xklxdm)
+    client = _make_client()
     if not client:
         return jsonify({'code': -1, 'message': '未登录'})
 
@@ -243,7 +321,7 @@ def add_course():
 def cancel_course():
     data = request.json or {}
     xklxdm = data.get('xklxdm') or storage.get_xklxdm()
-    client = _make_client(xklxdm=xklxdm)
+    client = _make_client()
     if not client:
         return jsonify({'code': -1, 'message': '未登录'})
 

@@ -1,6 +1,8 @@
 {
   "_说明": "重命名本文件为 storage.json 并填入你的 Cookie",
-  "_获取方式": "登录选课系统 → F12 → Application → Cookies → bkjx.nenu.edu.cn → 全选右键复制",
+  "_推荐方式": "优先使用网页上的「打开登录窗口」按钮登录，无需手工复制；此文件仅用于手动粘贴的备选方式",
+  "_获取方式": "打开 https://bkjx.nenu.edu.cn/ 登录，再打开选课页面 https://bkjx.nenu.edu.cn/xsxk.html?xklxdm=08 ；在该页面 F12 → Network → Ctrl+R → 找 config 请求 → Headers → Cookie 行右键 Copy value",
+  "_注意": "只登录首页而不进选课页面，拿到的 Cookie 不含选课系统的会话，粘贴后会提示未登录",
   "cookies": {
     "iPlanetDirectoryPro": "",
     "JSESSIONID": ""

@@ -18,6 +18,46 @@ async function apiCheckLogin() {
     return await r.json();
 }
 
+async function apiSessionStatus() {
+    const r = await fetch('/api/session/status');
+    return await r.json();
+}
+
+async function apiRenewSession() {
+    const r = await fetch('/api/session/renew', {method: 'POST'});
+    return await r.json();
+}
+
+// ---------- 内置浏览器 ----------
+async function apiBrowserStatus() {
+    const r = await fetch('/api/browser/status');
+    return await r.json();
+}
+
+async function apiBrowserOpen() {
+    const r = await fetch('/api/browser/open', {method: 'POST'});
+    return await r.json();
+}
+
+async function apiBrowserClose() {
+    const r = await fetch('/api/browser/close', {method: 'POST'});
+    return await r.json();
+}
+
+async function apiBrowserRefresh() {
+    const r = await fetch('/api/browser/refresh', {method: 'POST'});
+    return await r.json();
+}
+
+async function apiBrowserSettings(autoClose) {
+    const r = await fetch('/api/browser/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({auto_close_browser: autoClose})
+    });
+    return await r.json();
+}
+
 // ---------- Config & Combo ----------
 async function apiGetCombo(guid) {
     const r = await fetch('/api/combo/' + guid);
