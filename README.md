@@ -4,7 +4,7 @@
 
 ## 使用教程
 
-[哔哩哔哩视频教程](https://www.bilibili.com/video/BV1Lhj86HEev)
+[哔哩哔哩视频教程](https://www.bilibili.com/video/BV1Lhj86HEev)(现支持直接登录自动保持登录态)
 
 ## 功能
 
